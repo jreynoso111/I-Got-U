@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import * as Linking from 'expo-linking';
 import { ArrowLeft, Lock, Mail, User } from 'lucide-react-native';
 
 import { Card, Screen, Text } from '@/components/Themed';
@@ -111,13 +110,11 @@ export default function RegisterScreen() {
             setFeedback(null);
             setLoading(true);
 
-            const redirectTo = Linking.createURL('/auth/callback');
             const { error } = await withTimeout(
                 supabase.auth.signInWithOtp({
                     email: normalizedEmail,
                     options: {
                         shouldCreateUser: true,
-                        emailRedirectTo: redirectTo,
                         data: {
                             full_name: fullName.trim(),
                         },
@@ -361,7 +358,7 @@ export default function RegisterScreen() {
                                             autoCapitalize="none"
                                             keyboardType="number-pad"
                                             style={styles.input}
-                                            maxLength={8}
+                                            maxLength={6}
                                         />
                                     </RNView>
                                 </RNView>

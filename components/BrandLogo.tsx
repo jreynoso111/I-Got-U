@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BRAND_COLORS, BRAND_GRADIENT, BRAND_NAME, BRAND_TAGLINE } from '@/constants/Brand';
 
@@ -39,25 +39,15 @@ export function BrandLogo({
           },
         ]}
       >
-        <LinearGradient colors={[...BRAND_GRADIENT]} style={StyleSheet.absoluteFill} />
-        <View
-          style={[
-            styles.glowInner,
-            {
-              borderRadius: markSize * 0.22,
-            },
-          ]}
+        <Image
+          source={require('@/assets/images/logo.png')}
+          style={{
+            width: markSize * 1.2,
+            height: markSize * 1.2,
+            resizeMode: 'contain',
+            borderRadius: markSize * 0.28,
+          }}
         />
-        <Text
-          style={[
-            styles.markMonogram,
-            {
-              fontSize: markSize * 0.26,
-            },
-          ]}
-        >
-          IGY
-        </Text>
         <View
           style={[
             styles.checkBadge,

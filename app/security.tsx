@@ -116,6 +116,8 @@ export default function SecurityScreen() {
 
       setBiometricEnabled(true);
       Alert.alert('Success', `${capability.label} has been enabled.`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'An unexpected error occurred while enabling biometrics.');
     } finally {
       setBiometricBusy(false);
     }
@@ -124,15 +126,18 @@ export default function SecurityScreen() {
   const disableBiometric = async () => {
     if (!user?.id) return;
     setBiometricBusy(true);
-    const { error } = await updateUserPreferences(user.id, { biometric_enabled: false });
-    setBiometricBusy(false);
-
-    if (error) {
-      Alert.alert('Error', error.message);
-      return;
+    try {
+      const { error } = await updateUserPreferences(user.id, { biometric_enabled: false });
+      if (error) {
+        Alert.alert('Error', error.message);
+        return;
+      }
+      setBiometricEnabled(false);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'An unexpected error occurred while disabling biometrics.');
+    } finally {
+      setBiometricBusy(false);
     }
-
-    setBiometricEnabled(false);
   };
 
   const onToggleBiometric = async () => {
@@ -162,6 +167,8 @@ export default function SecurityScreen() {
       }
 
       Alert.alert('Success', `${biometricLabel} verification successful.`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'An unexpected error occurred while verifying.');
     } finally {
       setBiometricBusy(false);
     }
@@ -213,7 +220,7 @@ export default function SecurityScreen() {
             <Switch
               value={biometricEnabled}
               onValueChange={onToggleBiometric}
-              disabled={biometricBusy || !biometricSupported}
+              disabled={biometricBusy}
               trackColor={{ false: '#CBD5E1', true: '#6366F1' }}
               thumbColor="#FFFFFF"
             />
@@ -222,10 +229,10 @@ export default function SecurityScreen() {
           <TouchableOpacity
             style={[
               styles.verifyButton,
-              (biometricBusy || !biometricSupported || !biometricEnrolled) && styles.verifyButtonDisabled
+              biometricBusy && styles.verifyButtonDisabled
             ]}
             onPress={onTestBiometric}
-            disabled={biometricBusy || !biometricSupported || !biometricEnrolled}
+            disabled={biometricBusy}
           >
             <Text style={styles.verifyButtonText}>
               {biometricBusy ? 'Checking...' : `Test ${biometricLabel}`}

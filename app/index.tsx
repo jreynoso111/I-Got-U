@@ -13,51 +13,49 @@ export default function LandingPage() {
     const router = useRouter();
 
     return (
-        <AnimatedBackground>
-            <View style={styles.container}>
-                <View style={styles.content}>
-                    <Animated.View
-                        entering={FadeInUp.delay(300).duration(1000)}
-                        style={styles.logoContainer}
-                    >
-                        <BrandLogo size="lg" showWordmark centered />
-                        <Text style={styles.subtitle}>Hassle-free lending, for your loved ones.</Text>
-                    </Animated.View>
+        <AnimatedBackground style={styles.container}>
+            <View style={styles.content}>
+                <Animated.View
+                    entering={FadeInUp.delay(300).duration(1000)}
+                    style={styles.logoContainer}
+                >
+                    <BrandLogo size="lg" showWordmark centered />
+                    <Text style={styles.subtitle}>Hassle-free lending, for your loved ones.</Text>
+                </Animated.View>
 
-                    <Animated.View
-                        entering={FadeInDown.delay(600).duration(1000)}
-                        style={styles.featuresContainer}
-                    >
-                        <FeatureItem
-                            icon={<ShieldCheck size={22} color="#1D4ED8" />}
-                            text="Secure & Reliable"
-                        />
-                        <FeatureItem
-                            icon={<Zap size={22} color="#0284C7" />}
-                            text="Real-time Management"
-                        />
-                    </Animated.View>
+                <Animated.View
+                    entering={FadeInDown.delay(600).duration(1000)}
+                    style={styles.featuresContainer}
+                >
+                    <FeatureItem
+                        icon={<ShieldCheck size={22} color="#1D4ED8" />}
+                        text="Secure & Reliable"
+                    />
+                    <FeatureItem
+                        icon={<Zap size={22} color="#0284C7" />}
+                        text="Real-time Management"
+                    />
+                </Animated.View>
 
-                    <Animated.View
-                        entering={FadeInDown.delay(900).duration(1000)}
-                        style={styles.ctaContainer}
+                <Animated.View
+                    entering={FadeInDown.delay(900).duration(1000)}
+                    style={styles.ctaContainer}
+                >
+                    <Pressable
+                        style={({ pressed }) => [
+                            styles.button,
+                            pressed && { transform: [{ scale: 0.98 }] }
+                        ]}
+                        onPress={() => router.push('/(auth)/login')}
                     >
-                        <Pressable
-                            style={({ pressed }) => [
-                                styles.button,
-                                pressed && { transform: [{ scale: 0.98 }] }
-                            ]}
-                            onPress={() => router.push('/(auth)/login')}
-                        >
-                            <Text style={styles.buttonText}>Get Started</Text>
-                            <ArrowRight size={20} color="#FFFFFF" strokeWidth={3} />
-                        </Pressable>
-                    </Animated.View>
-                </View>
+                        <Text style={styles.buttonText}>Get Started</Text>
+                        <ArrowRight size={20} color="#FFFFFF" strokeWidth={3} />
+                    </Pressable>
+                </Animated.View>
+            </View>
 
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>© 2026 jreynoso</Text>
-                </View>
+            <View style={styles.footer}>
+                <Text style={styles.footerText}>© 2026 I GOT YOU</Text>
             </View>
         </AnimatedBackground>
     );

@@ -72,11 +72,15 @@ export function Card(props: ViewProps) {
   );
 }
 
+import { SafeAreaView } from 'react-native-safe-area-context';
+
 export function Screen(props: ViewProps) {
   const { style, ...otherProps } = props;
   return (
-    <AnimatedBackground>
-      <DefaultView style={[{ flex: 1, backgroundColor: 'transparent' }, style]} {...otherProps} />
+    <AnimatedBackground style={{ flex: 1 }}>
+      <SafeAreaView style={[{ flex: 1 }, style]} {...otherProps}>
+        <DefaultView style={[{ flex: 1, backgroundColor: 'transparent' }]} {...otherProps} />
+      </SafeAreaView>
     </AnimatedBackground>
   );
 }

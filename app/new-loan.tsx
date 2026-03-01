@@ -521,7 +521,7 @@ export default function NewLoanScreen() {
                         <Text style={styles.saveButtonText}>{loading ? 'STAYING SECURE...' : 'Add Transaction'}</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.copyright}>© 2026 jreynoso — I GOT U</Text>
+                    <Text style={styles.copyright}>© 2026 I GOT YOU</Text>
                 </ScrollView>
             </KeyboardAvoidingView>
         </Screen>

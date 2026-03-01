@@ -226,7 +226,7 @@ export default function LoginScreen() {
                         ) : null}
                     </Card>
 
-                    <Text style={styles.copyright}>© 2026 jreynoso — I GOT U</Text>
+                    <Text style={styles.copyright}>© 2026 I GOT YOU</Text>
                 </RNView>
             </KeyboardAvoidingView>
         </Screen>
