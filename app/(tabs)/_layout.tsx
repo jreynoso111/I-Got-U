@@ -4,6 +4,7 @@ import { Home, Users, Settings } from 'lucide-react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
+import { BrandLogo } from '@/components/BrandLogo';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme() || 'light';
@@ -44,6 +45,11 @@ export default function TabLayout() {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerLeft: () => (
+          <View style={{ marginLeft: 16 }}>
+            <BrandLogo size="sm" showTagline={false} showWordmark={false} />
+          </View>
+        ),
         headerRight: () => (
           <View style={styles.headerNav}>
             <TouchableOpacity

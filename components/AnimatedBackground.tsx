@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
-export const AnimatedBackground = ({ children }: { children: React.ReactNode }) => {
+export const AnimatedBackground = ({ children, style }: { children: React.ReactNode, style?: any }) => {
     const progress = useSharedValue(0);
 
     useEffect(() => {
@@ -40,7 +40,7 @@ export const AnimatedBackground = ({ children }: { children: React.ReactNode }) 
     });
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, style]}>
             {/* Abstract Animated Blobs */}
             <Animated.View style={[styles.blob, styles.blob1, animatedStyle1]}>
                 <LinearGradient

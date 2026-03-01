@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { StyleSheet, View, TextInput, TouchableOpacity, Text, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { useRouter, Stack, useLocalSearchParams } from 'expo-router';
@@ -13,6 +13,8 @@ export default function NewContactScreen() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
+    const [notes, setNotes] = useState('');
+    const [socialNetwork, setSocialNetwork] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -65,6 +67,8 @@ export default function NewContactScreen() {
             setName(data.name);
             setEmail(data.email || '');
             setPhone(data.phone || '');
+            setNotes(data.notes || '');
+            setSocialNetwork(data.social_network || '');
         }
         setLoading(false);
     };
@@ -75,7 +79,37 @@ export default function NewContactScreen() {
             return;
         }
 
+        if (!user?.id) {
+            Alert.alert('Error', 'User not found');
+            return;
+        }
+
         setLoading(true);
+
+        // Detect duplicate contact by email or phone
+        if (email.trim() || phone.trim()) {
+            const orConditions = [];
+            if (email.trim()) orConditions.push(`email.ilike.${email.trim()}`);
+            if (phone.trim()) orConditions.push(`phone.eq.${phone.trim()}`);
+
+            if (orConditions.length > 0) {
+                const { data: duplicates } = await supabase
+                    .from('contacts')
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .is('deleted_at', null)
+                    .or(orConditions.join(','));
+
+                if (duplicates && duplicates.length > 0) {
+                    const isDuplicate = duplicates.some((d: any) => d.id !== contactId);
+                    if (isDuplicate) {
+                        Alert.alert('Duplicate Contact', 'You already have a contact saved with this exact email or phone number.');
+                        setLoading(false);
+                        return;
+                    }
+                }
+            }
+        }
 
         // 1. Discover target_user_id via RPC (avoids exposing full profiles table)
         let targetUserId = null;
@@ -102,6 +136,8 @@ export default function NewContactScreen() {
                     name: name.trim(),
                     email: email.trim() || null,
                     phone: phone.trim() || null,
+                    notes: notes.trim() || null,
+                    social_network: socialNetwork.trim() || null,
                     target_user_id: targetUserId,
                 })
                 .eq('id', contactId)
@@ -120,6 +156,8 @@ export default function NewContactScreen() {
                     name: name.trim(),
                     email: email.trim() || null,
                     phone: phone.trim() || null,
+                    notes: notes.trim() || null,
+                    social_network: socialNetwork.trim() || null,
                     target_user_id: targetUserId,
                 },
             ]);
@@ -225,7 +263,7 @@ export default function NewContactScreen() {
                 )
             }} />
 
-            <View style={styles.form}>
+            <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
                 <View style={styles.inputGroup}>
                     <Text style={styles.label}>Full Name *</Text>
                     <TextInput
@@ -259,6 +297,27 @@ export default function NewContactScreen() {
                     />
                 </View>
 
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Social Network (Optional)</Text>
+                    <TextInput
+                        placeholder="e.g. @johndoe on Instagram"
+                        value={socialNetwork}
+                        onChangeText={setSocialNetwork}
+                        style={styles.input}
+                    />
+                </View>
+
+                <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Notes (Optional)</Text>
+                    <TextInput
+                        placeholder="Add some notes about this contact..."
+                        value={notes}
+                        onChangeText={setNotes}
+                        multiline
+                        style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+                    />
+                </View>
+
                 <TouchableOpacity
                     onPress={onSave}
                     disabled={loading}
@@ -278,8 +337,8 @@ export default function NewContactScreen() {
                     </TouchableOpacity>
                 )}
 
-                <Text style={styles.copyright}>© 2026 jreynoso — I GOT U</Text>
-            </View>
+                <Text style={styles.copyright}>© 2026 I GOT YOU</Text>
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }

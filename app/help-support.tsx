@@ -4,58 +4,41 @@ import { Stack } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
 import { Mail, MessageCircle, FileText, Shield, CircleHelp, ChevronRight } from 'lucide-react-native';
 
+import { useRouter } from 'expo-router';
+
 export default function HelpSupportScreen() {
-  const openLink = async (url: string) => {
-    const canOpen = await Linking.canOpenURL(url);
-    if (!canOpen) {
-      Alert.alert('Error', 'Could not open this link');
-      return;
-    }
-    await Linking.openURL(url);
-  };
+  const router = useRouter();
 
   const items = [
     {
-      icon: Mail,
-      label: 'Email Support',
-      sub: 'support@igotyou.app',
-      onPress: () => void openLink('mailto:support@igotyou.app?subject=I%20GOT%20YOU%20Support'),
+      icon: MessageCircle,
+      label: 'Support',
+      sub: 'Coming soon',
+      onPress: () => Alert.alert('Support', 'This feature will be available soon.'),
     },
     {
-      icon: MessageCircle,
-      label: 'WhatsApp Support',
-      sub: 'Open chat',
-      onPress: () => void openLink('https://wa.me/17265550100'),
+      icon: Mail,
+      label: 'Requests & Recommendations',
+      sub: 'Submit ideas or requests',
+      onPress: () => Alert.alert('Requests & Recommendations', 'This feature will be available soon.'),
     },
     {
       icon: FileText,
       label: 'Terms of Service',
       sub: 'Read in app',
-      onPress: () =>
-        Alert.alert(
-          'Terms of Service',
-          'You agree to use this app responsibly and provide accurate financial records. Do not use this app for unlawful activities.'
-        ),
+      onPress: () => router.push('/terms'),
     },
     {
       icon: Shield,
       label: 'Privacy Policy',
       sub: 'Read in app',
-      onPress: () =>
-        Alert.alert(
-          'Privacy Policy',
-          'We store account, contacts, loans and payment activity to provide the service. You can request account deletion from support.'
-        ),
+      onPress: () => router.push('/privacy'),
     },
     {
       icon: CircleHelp,
       label: 'FAQ',
       sub: 'Most common questions',
-      onPress: () =>
-        Alert.alert(
-          'FAQ',
-          '1) Add contacts first.\n2) Create money or item loans.\n3) Register payments from each loan detail.\n4) Export data from Settings.'
-        ),
+      onPress: () => router.push('/faq'),
     },
   ];
 

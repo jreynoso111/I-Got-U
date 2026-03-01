@@ -717,7 +717,7 @@ export default function LoanDetailScreen() {
                     </RNView>
                 </RNView>
 
-                <Text style={styles.copyright}>© 2026 jreynoso — I GOT U</Text>
+                <Text style={styles.copyright}>© 2026 I GOT YOU</Text>
             </ScrollView>
 
             <Modal
@@ -868,13 +868,6 @@ export default function LoanDetailScreen() {
                     </TouchableOpacity>
                 )}
 
-                <TouchableOpacity
-                    style={styles.deleteRecordBtn}
-                    onPress={handleDelete}
-                >
-                    <Trash2 color="#EF4444" size={20} />
-                    <Text style={styles.deleteRecordBtnText}>Delete Record</Text>
-                </TouchableOpacity>
             </RNView>
         </Screen >
     );
@@ -1285,23 +1278,6 @@ const styles = StyleSheet.create({
         color: '#6366F1',
         fontSize: 16,
         fontWeight: '700',
-    },
-    deleteRecordBtn: {
-        marginTop: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: '#FECACA',
-        backgroundColor: '#FEF2F2',
-        gap: 8,
-    },
-    deleteRecordBtnText: {
-        color: '#EF4444',
-        fontSize: 16,
-        fontWeight: '800',
     },
     copyright: {
         textAlign: 'center',

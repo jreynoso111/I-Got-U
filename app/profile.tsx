@@ -56,17 +56,15 @@ export default function ProfileScreen() {
 
     setLoading(true);
 
-    const { error } = await supabase.from('profiles').upsert(
+    const { error } = await supabase.from('profiles').update(
       {
-        id: user.id,
         full_name: fullName.trim() || null,
         phone: phone.trim() || null,
         email: email.trim() || user.email || null,
         currency_default: currencyDefault,
         updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'id' }
-    );
+      }
+    ).eq('id', user.id);
 
     setLoading(false);
 
