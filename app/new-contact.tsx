@@ -181,7 +181,7 @@ export default function NewContactScreen() {
 
         confirmAction(
             'Delete Contact',
-            'Are you sure you want to delete this contact? This will not affect existing loans.',
+            'Are you sure you want to delete this contact? This will not affect existing lend/borrow records.',
             async () => {
                 await confirmDelete();
             }

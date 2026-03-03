@@ -8,6 +8,7 @@ import { ArrowLeft, Wallet, Calendar, Plus, Clock, FileText, Trash2, Edit, Box, 
 import { useAuthStore } from '@/store/authStore';
 import { CURRENCIES, getCurrencySymbol } from '@/constants/Currencies';
 import { getOrCreateUserPreferences, sanitizePreferredCurrencies, updateUserPreferences } from '@/services/userPreferences';
+import { cancelLoanReminders, upsertLoanReminderForUser } from '@/services/notificationService';
 
 export default function LoanDetailScreen() {
     const { id } = useLocalSearchParams();
@@ -82,7 +83,7 @@ export default function LoanDetailScreen() {
             .maybeSingle();
 
         if (loanError || !loanData) {
-            Alert.alert('Error', loanError?.message || 'Loan not found');
+            Alert.alert('Error', loanError?.message || 'Record not found');
             goToHome();
             setLoading(false);
             return;
@@ -171,6 +172,7 @@ export default function LoanDetailScreen() {
                 .from('loans')
                 .update({ status: 'paid' })
                 .eq('id', loanId);
+            await cancelLoanReminders(String(loanId));
             return;
         }
 
@@ -197,11 +199,29 @@ export default function LoanDetailScreen() {
             .from('loans')
             .update({ status: nextStatus })
             .eq('id', loanId);
+
+        if (nextStatus === 'paid') {
+            await cancelLoanReminders(String(loanId));
+            return;
+        }
+
+        if (!user?.id || !loan) return;
+        await upsertLoanReminderForUser({
+            userId: user.id,
+            loanId: String(loanId),
+            contactName: loan?.contacts?.name || 'Someone',
+            amount: loan?.category === 'money' ? Number(loan?.amount || 0) : 0,
+            dueDate: loan?.due_date || new Date().toISOString().split('T')[0],
+            category: loan?.category || 'money',
+            status: nextStatus,
+            frequency: loan?.reminder_frequency || 'none',
+            interval: Number(loan?.reminder_interval || 1),
+        });
     };
 
     const handleUpdate = async () => {
         if (!loanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
@@ -248,9 +268,20 @@ export default function LoanDetailScreen() {
         if (error) {
             Alert.alert('Error', error.message);
         } else if (!data || data.length === 0) {
-            Alert.alert('Error', 'Loan could not be updated');
+            Alert.alert('Error', 'Record could not be updated');
         } else {
-            Alert.alert('Success', 'Loan updated');
+            await upsertLoanReminderForUser({
+                userId: user.id,
+                loanId: String(loanId),
+                contactName: loan?.contacts?.name || 'Someone',
+                amount: loan?.category === 'money' ? Number(parseFloat(editAmount) || 0) : 0,
+                dueDate: editDueDate || loan?.due_date || new Date().toISOString().split('T')[0],
+                category: loan?.category || 'money',
+                status: loan?.status || 'active',
+                frequency: reminderFrequency,
+                interval: parseInt(reminderInterval) || 1,
+            });
+            Alert.alert('Success', 'Record updated');
             setIsEditing(false);
             fetchLoanDetails();
         }
@@ -258,7 +289,7 @@ export default function LoanDetailScreen() {
 
     const handleDeletePayment = (paymentId: string) => {
         if (!loanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
@@ -286,13 +317,13 @@ export default function LoanDetailScreen() {
 
     const handleDelete = async () => {
         if (!loanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
         confirmAction(
             'Delete Record',
-            'Are you sure you want to delete this loan? This action is undoable only by contact supports.',
+            'Are you sure you want to delete this record? This action is undoable only by contact supports.',
             async () => {
                 await confirmDelete();
             }
@@ -301,7 +332,7 @@ export default function LoanDetailScreen() {
 
     const confirmDelete = async () => {
         if (!loanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
@@ -315,7 +346,8 @@ export default function LoanDetailScreen() {
                 .eq('user_id', user.id);
 
             if (!hardDeleteError && (count ?? 0) > 0) {
-                Alert.alert('Success', 'Loan deleted');
+                await cancelLoanReminders(String(loanId));
+                Alert.alert('Success', 'Record deleted');
                 router.replace('/(tabs)');
                 return;
             }
@@ -333,14 +365,15 @@ export default function LoanDetailScreen() {
             }
 
             if (!data || data.length === 0) {
-                Alert.alert('Error', 'Loan could not be deleted');
+                Alert.alert('Error', 'Record could not be deleted');
                 return;
             }
 
-            Alert.alert('Success', 'Loan deleted');
+            await cancelLoanReminders(String(loanId));
+            Alert.alert('Success', 'Record deleted');
             router.replace('/(tabs)');
         } catch (error: any) {
-            Alert.alert('Error', error?.message || 'Unexpected error deleting loan');
+            Alert.alert('Error', error?.message || 'Unexpected error deleting record');
         } finally {
             setLoading(false);
         }
@@ -624,7 +657,7 @@ export default function LoanDetailScreen() {
                                 <RNView style={[styles.analyticsIcon, { backgroundColor: health === 'ahead' ? 'rgba(16, 185, 129, 0.1)' : health === 'behind' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(99, 102, 241, 0.1)' }]}>
                                     {health === 'ahead' ? <ShieldCheck size={20} color="#10B981" /> : health === 'behind' ? <ShieldAlert size={20} color="#EF4444" /> : <Shield size={20} color="#6366F1" />}
                                 </RNView>
-                                <Text style={styles.analyticsLabel}>Loan Health</Text>
+                                <Text style={styles.analyticsLabel}>Lend/Borrow Health</Text>
                                 <Text style={[styles.analyticsValue, { color: health === 'ahead' ? '#10B981' : health === 'behind' ? '#EF4444' : '#6366F1' }]}>
                                     {health === 'ahead' ? 'Ahead' : health === 'behind' ? 'Behind' : 'On Track'}
                                 </Text>
@@ -646,7 +679,7 @@ export default function LoanDetailScreen() {
                             </RNView>
                             <Text style={styles.efficiencyDesc}>
                                 {health === 'ahead'
-                                    ? "You're paying off this loan faster than scheduled. Great management!"
+                                    ? "You're closing this record faster than scheduled. Great management!"
                                     : health === 'behind'
                                         ? "Payments are slower than the timeline suggests. Consider an extra payment."
                                         : "Everything is moving according to the original plan."}
@@ -824,7 +857,10 @@ export default function LoanDetailScreen() {
                                 .update({ status: 'paid' })
                                 .eq('id', loanId)
                                 .eq('user_id', user?.id);
-                            if (!error) fetchLoanDetails();
+                            if (!error) {
+                                await cancelLoanReminders(String(loanId));
+                                fetchLoanDetails();
+                            }
                         }}
                     >
                         <Box color="#fff" size={22} />

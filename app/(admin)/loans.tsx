@@ -45,7 +45,7 @@ export default function AdminLoansList() {
             if (error) throw error;
             setLoans(data as AdminLoan[]);
         } catch (err: any) {
-            setError(err.message || 'Failed to fetch loans');
+            setError(err.message || 'Failed to fetch lend/borrow records');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -157,7 +157,7 @@ export default function AdminLoansList() {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <Banknote size={48} color="#CBD5E1" />
-                        <Text style={styles.emptyText}>No loans found.</Text>
+                        <Text style={styles.emptyText}>No lend/borrow records found.</Text>
                     </View>
                 }
             />

@@ -7,11 +7,15 @@ import { LogOut, User, Bell, Shield, CircleHelp, FileOutput, ChevronRight } from
 import { exportLoansToCSV } from '@/services/exportService';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { DEFAULT_USER_PREFERENCES, getOrCreateUserPreferences } from '@/services/userPreferences';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const LAST_PROTECTED_PATH_KEY = 'last_protected_path';
 
 export default function SettingsScreen() {
-    const { user, role } = useAuthStore();
+    const { user, role, setSession, setUser, setRole, setLanguage } = useAuthStore();
     const router = useRouter();
     const [prefs, setPrefs] = React.useState(DEFAULT_USER_PREFERENCES);
+    const normalizedRole = (role || '').toLowerCase().trim();
 
     useFocusEffect(
         React.useCallback(() => {
@@ -36,8 +40,20 @@ export default function SettingsScreen() {
     };
 
     const handleSignOut = async () => {
+        await AsyncStorage.removeItem(LAST_PROTECTED_PATH_KEY);
+        // Clear local auth state immediately to avoid landing->tabs bounce during sign-out transition.
+        setSession(null);
+        setUser(null);
+        setRole(null);
+        setLanguage('en');
+
         const { error } = await supabase.auth.signOut();
-        if (error) Alert.alert('Error', error.message);
+        if (error) {
+            Alert.alert('Error', error.message);
+            return;
+        }
+
+        router.replace('/');
     };
 
     const handleExport = async () => {
@@ -54,12 +70,12 @@ export default function SettingsScreen() {
         { icon: CircleHelp, label: 'Help & Support', sub: 'FAQ & contact', onPress: () => router.push('/help-support') },
     ];
 
-    if (role === 'admin') {
+    if (normalizedRole === 'admin') {
         menuItems.unshift({
             icon: Shield,
             label: 'Admin Dashboard',
             sub: 'Manage users and platform data',
-            onPress: () => router.push('/(admin)' as any)
+            onPress: () => router.push('/admin' as any)
         });
     }
 

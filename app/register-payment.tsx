@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { X, Check, Wallet, Info, Box, Trash2 } from 'lucide-react-native';
 import { Screen, Card, View as ThemedView, Text as ThemedText } from '@/components/Themed';
 import { getCurrencySymbol } from '@/constants/Currencies';
+import { cancelLoanReminders, upsertLoanReminderForUser } from '@/services/notificationService';
 
 export default function RegisterPaymentScreen() {
     const { loanId, remaining, category: loanCategory, currency, paymentId } = useLocalSearchParams();
@@ -98,7 +99,7 @@ export default function RegisterPaymentScreen() {
 
     const onSave = async () => {
         if (!normalizedLoanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
@@ -144,7 +145,7 @@ export default function RegisterPaymentScreen() {
 
         const { data: loanSnapshot, error: loanSnapshotError } = await supabase
             .from('loans')
-            .select('id, category, amount')
+            .select('id, category, amount, due_date, reminder_frequency, reminder_interval, status, contacts(name)')
             .eq('id', normalizedLoanId)
             .single();
 
@@ -165,6 +166,7 @@ export default function RegisterPaymentScreen() {
                 .from('loans')
                 .update({ status: 'paid' })
                 .eq('id', normalizedLoanId);
+            await cancelLoanReminders(String(normalizedLoanId));
             return;
         }
 
@@ -191,6 +193,24 @@ export default function RegisterPaymentScreen() {
             .from('loans')
             .update({ status: nextStatus })
             .eq('id', normalizedLoanId);
+
+        if (nextStatus === 'paid') {
+            await cancelLoanReminders(String(normalizedLoanId));
+            return;
+        }
+
+        if (!user?.id) return;
+        await upsertLoanReminderForUser({
+            userId: user.id,
+            loanId: String(normalizedLoanId),
+            contactName: (loanSnapshot as any)?.contacts?.name || 'Someone',
+            amount: loanSnapshot.category === 'money' ? Number(loanSnapshot.amount || 0) : 0,
+            dueDate: (loanSnapshot as any).due_date || new Date().toISOString().split('T')[0],
+            category: (loanSnapshot as any).category || 'money',
+            status: nextStatus,
+            frequency: (loanSnapshot as any).reminder_frequency || 'none',
+            interval: Number((loanSnapshot as any).reminder_interval || 1),
+        });
     };
 
     const onDeletePayment = (fromZeroAmount = false) => {
@@ -235,7 +255,7 @@ export default function RegisterPaymentScreen() {
 
     const performSave = async () => {
         if (!normalizedLoanId || !user?.id) {
-            Alert.alert('Error', 'Loan not found');
+            Alert.alert('Error', 'Record not found');
             return;
         }
 
@@ -418,7 +438,7 @@ export default function RegisterPaymentScreen() {
                             />
                             <ThemedView style={styles.helperRow}>
                                 <Info size={14} color="#64748B" />
-                                <Text style={styles.helperText}>Closing this {normalizedLoanCategory === 'item' ? 'item lending' : 'money loan'} with an item exchange.</Text>
+                                <Text style={styles.helperText}>Closing this {normalizedLoanCategory === 'item' ? 'item lending' : 'money lend/borrow record'} with an item exchange.</Text>
                             </ThemedView>
                         </Card>
                     )}

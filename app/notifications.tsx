@@ -9,12 +9,20 @@ import {
   updateUserPreferences,
   UserPreferences,
 } from '@/services/userPreferences';
+import {
+  clearAllLoanReminders,
+  disablePushNotifications,
+  getPushPermissionStatus,
+  registerForPushNotificationsAsync,
+} from '@/services/notificationService';
 
 type ToggleKey = 'push_enabled' | 'email_enabled' | 'reminder_enabled' | 'marketing_enabled';
 
 export default function NotificationsScreen() {
   const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<ToggleKey | null>(null);
+  const [pushPermission, setPushPermission] = useState<string>('unknown');
   const [prefs, setPrefs] = useState<Omit<UserPreferences, 'user_id'>>({
     ...DEFAULT_USER_PREFERENCES,
   });
@@ -27,7 +35,12 @@ export default function NotificationsScreen() {
   const loadPreferences = async () => {
     if (!user?.id) return;
     setLoading(true);
-    const { data, error } = await getOrCreateUserPreferences(user.id);
+    const [prefResult, permissionStatus] = await Promise.all([
+      getOrCreateUserPreferences(user.id),
+      getPushPermissionStatus(),
+    ]);
+    const { data, error } = prefResult;
+    setPushPermission(permissionStatus);
     setLoading(false);
 
     if (error) {
@@ -49,13 +62,74 @@ export default function NotificationsScreen() {
 
   const togglePreference = async (key: ToggleKey) => {
     if (!user?.id) return;
+    if (saving) return;
+
     const nextValue = !prefs[key];
     const previous = prefs;
+    setSaving(key);
     setPrefs({ ...prefs, [key]: nextValue });
 
-    const { data, error } = await updateUserPreferences(user.id, { [key]: nextValue });
+    if (key === 'push_enabled') {
+      if (nextValue) {
+        const token = await registerForPushNotificationsAsync({ requestPermission: true, userId: user.id });
+        const permission = await getPushPermissionStatus();
+        setPushPermission(permission);
+        if (!token) {
+          setPrefs(previous);
+          setSaving(null);
+          Alert.alert('Push notifications remain disabled', 'Permission was not granted.');
+          return;
+        }
+      } else {
+        await disablePushNotifications(user.id);
+        if (prefs.reminder_enabled) {
+          setPrefs((current) => ({ ...current, reminder_enabled: false }));
+        }
+      }
+    }
+
+    if (key === 'reminder_enabled') {
+      if (nextValue && !prefs.push_enabled) {
+        const token = await registerForPushNotificationsAsync({ requestPermission: true, userId: user.id });
+        const permission = await getPushPermissionStatus();
+        setPushPermission(permission);
+        if (!token) {
+          setPrefs(previous);
+          setSaving(null);
+          Alert.alert('Cannot enable reminders', 'Enable push notifications first.');
+          return;
+        }
+
+        const pushPatch = await updateUserPreferences(user.id, { push_enabled: true });
+        if (pushPatch.error || !pushPatch.data) {
+          setPrefs(previous);
+          setSaving(null);
+          Alert.alert('Error', pushPatch.error?.message || 'Could not enable push notifications.');
+          return;
+        }
+
+        setPrefs({
+          push_enabled: pushPatch.data.push_enabled,
+          email_enabled: pushPatch.data.email_enabled,
+          reminder_enabled: pushPatch.data.reminder_enabled,
+          biometric_enabled: pushPatch.data.biometric_enabled,
+          marketing_enabled: pushPatch.data.marketing_enabled,
+          preferred_currencies: pushPatch.data.preferred_currencies,
+        });
+      } else if (!nextValue) {
+        await clearAllLoanReminders();
+      }
+    }
+
+    const patch: Partial<Omit<UserPreferences, 'user_id' | 'updated_at'>> =
+      key === 'push_enabled' && !nextValue
+        ? { push_enabled: false, reminder_enabled: false }
+        : { [key]: nextValue };
+
+    const { data, error } = await updateUserPreferences(user.id, patch);
     if (error) {
       setPrefs(previous);
+      setSaving(null);
       Alert.alert('Error', error.message);
       return;
     }
@@ -70,6 +144,7 @@ export default function NotificationsScreen() {
         preferred_currencies: data.preferred_currencies,
       });
     }
+    setSaving(null);
   };
 
   return (
@@ -82,18 +157,21 @@ export default function NotificationsScreen() {
             subtitle="Alerts for requests, reminders and updates"
             value={prefs.push_enabled}
             onChange={() => togglePreference('push_enabled')}
+            disabled={!!saving}
           />
           <PreferenceRow
             title="Email Notifications"
             subtitle="Receive account and activity emails"
             value={prefs.email_enabled}
             onChange={() => togglePreference('email_enabled')}
+            disabled={!!saving}
           />
           <PreferenceRow
             title="Payment Reminders"
             subtitle="Get reminder alerts before due dates"
             value={prefs.reminder_enabled}
             onChange={() => togglePreference('reminder_enabled')}
+            disabled={!!saving}
           />
           <PreferenceRow
             title="Product Updates"
@@ -101,9 +179,15 @@ export default function NotificationsScreen() {
             value={prefs.marketing_enabled}
             onChange={() => togglePreference('marketing_enabled')}
             noBorder
+            disabled={!!saving}
           />
         </Card>
         {loading ? <Text style={styles.footerText}>Loading preferences...</Text> : null}
+        {!loading ? (
+          <Text style={styles.footerText}>
+            Push Permission: {pushPermission}
+          </Text>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -115,12 +199,14 @@ function PreferenceRow({
   value,
   onChange,
   noBorder = false,
+  disabled = false,
 }: {
   title: string;
   subtitle: string;
   value: boolean;
   onChange: () => void;
   noBorder?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <RNView style={[styles.row, noBorder && styles.noBorder]}>
@@ -133,6 +219,7 @@ function PreferenceRow({
         onValueChange={onChange}
         trackColor={{ false: '#CBD5E1', true: '#6366F1' }}
         thumbColor="#FFFFFF"
+        disabled={disabled}
       />
     </RNView>
   );

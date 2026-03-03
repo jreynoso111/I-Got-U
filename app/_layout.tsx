@@ -3,13 +3,17 @@ import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
+import { Alert } from 'react-native';
 import 'react-native-reanimated';
 
 import { useAuth } from '@/hooks/useAuth';
-import { registerForPushNotificationsAsync } from '@/services/notificationService';
+import { disablePushNotifications, registerForPushNotificationsAsync } from '@/services/notificationService';
 import * as Notifications from 'expo-notifications';
 import { useColorScheme } from '@/components/useColorScheme';
 import { GreetingRotator } from '@/components/GreetingRotator';
+import { useI18n } from '@/hooks/useI18n';
+import { useAuthStore } from '@/store/authStore';
+import { getOrCreateUserPreferences } from '@/services/userPreferences';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -50,10 +54,6 @@ export default function RootLayout() {
     }
   }, [loaded]);
 
-  useEffect(() => {
-    registerForPushNotificationsAsync();
-  }, []);
-
   if (!loaded) {
     return null;
   }
@@ -65,7 +65,67 @@ import { AnimatedBackground } from '@/components/AnimatedBackground';
 
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const { t } = useI18n();
+  const user = useAuthStore((state) => state.user);
   useAuth(); // Handle redirects based on auth state
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const syncNotificationSetup = async () => {
+      const { data, error } = await getOrCreateUserPreferences(user.id);
+      if (cancelled || error || !data) return;
+
+      if (data.push_enabled) {
+        await registerForPushNotificationsAsync({ requestPermission: true, userId: user.id });
+        return;
+      }
+
+      await disablePushNotifications(user.id);
+    };
+
+    void syncNotificationSetup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    const originalAlert = Alert.alert;
+    const originalPrompt = Alert.prompt;
+
+    Alert.alert = ((title, message, buttons, options) => {
+      const translatedButtons = buttons?.map((button) => ({
+        ...button,
+        text: button.text ? t(button.text) : button.text,
+      }));
+      return originalAlert(
+        typeof title === 'string' ? t(title) : title,
+        typeof message === 'string' ? t(message) : message,
+        translatedButtons,
+        options
+      );
+    }) as typeof Alert.alert;
+
+    if (typeof originalPrompt === 'function') {
+      Alert.prompt = ((title, message, callbackOrButtons, type, defaultValue, keyboardType) =>
+        originalPrompt(
+          typeof title === 'string' ? t(title) : title,
+          typeof message === 'string' ? t(message) : message,
+          callbackOrButtons,
+          type,
+          defaultValue,
+          keyboardType
+        )) as typeof Alert.prompt;
+    }
+
+    return () => {
+      Alert.alert = originalAlert;
+      Alert.prompt = originalPrompt;
+    };
+  }, [t]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -86,20 +146,21 @@ function RootLayoutNav() {
           <Stack.Screen name="(auth)/login" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)/register" options={{ headerShown: false }} />
           <Stack.Screen name="auth/callback" options={{ headerShown: false }} />
-          <Stack.Screen name="(auth)/forgot-password" options={{ title: 'Recover Password' }} />
-          <Stack.Screen name="(auth)/reset-password" options={{ title: 'Reset Password' }} />
+          <Stack.Screen name="(auth)/forgot-password" options={{ title: t('Recover Password') }} />
+          <Stack.Screen name="(auth)/reset-password" options={{ title: t('Reset Password') }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(admin)" options={{ headerShown: false }} />
-          <Stack.Screen name="loan/[id]" options={{ title: 'Loan Details' }} />
-          <Stack.Screen name="new-loan" options={{ title: 'New Loan' }} />
-          <Stack.Screen name="new-contact" options={{ title: 'New Contact' }} />
-          <Stack.Screen name="profile" options={{ title: 'Profile' }} />
-          <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />
-          <Stack.Screen name="security" options={{ title: 'Security' }} />
-          <Stack.Screen name="help-support" options={{ title: 'Help & Support' }} />
-          <Stack.Screen name="terms" options={{ title: 'Terms of Service' }} />
-          <Stack.Screen name="privacy" options={{ title: 'Privacy Policy' }} />
-          <Stack.Screen name="faq" options={{ title: 'FAQ' }} />
+          <Stack.Screen name="admin" options={{ headerShown: false }} />
+          <Stack.Screen name="loan/[id]" options={{ title: t('Lend/Borrow Details') }} />
+          <Stack.Screen name="new-loan" options={{ title: t('New Lend/Borrow') }} />
+          <Stack.Screen name="new-contact" options={{ title: t('New Contact') }} />
+          <Stack.Screen name="profile" options={{ title: t('Profile') }} />
+          <Stack.Screen name="notifications" options={{ title: t('Notifications') }} />
+          <Stack.Screen name="security" options={{ title: t('Security') }} />
+          <Stack.Screen name="help-support" options={{ title: t('Help & Support') }} />
+          <Stack.Screen name="terms" options={{ title: t('Terms of Service') }} />
+          <Stack.Screen name="privacy" options={{ title: t('Privacy Policy') }} />
+          <Stack.Screen name="faq" options={{ title: t('FAQ') }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
       </AnimatedBackground>

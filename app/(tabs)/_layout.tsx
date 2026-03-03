@@ -5,9 +5,11 @@ import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import { BrandLogo } from '@/components/BrandLogo';
+import { useI18n } from '@/hooks/useI18n';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme() || 'light';
+  const { t } = useI18n();
   const router = useRouter();
   const segments = useSegments();
 
@@ -85,9 +87,9 @@ export default function TabLayout() {
         ),
       }}
     >
-      <Stack.Screen name="index" options={{ title: 'Home' }} />
-      <Stack.Screen name="contacts" options={{ title: 'Contacts' }} />
-      <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+      <Stack.Screen name="index" options={{ title: t('Home') }} />
+      <Stack.Screen name="contacts" options={{ title: t('Contacts') }} />
+      <Stack.Screen name="settings" options={{ title: t('Settings') }} />
     </Stack>
   );
 }

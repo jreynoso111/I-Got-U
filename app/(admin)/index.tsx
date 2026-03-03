@@ -74,7 +74,7 @@ export default function AdminDashboardIndex() {
                         <View style={[styles.iconWrapper, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                             <Banknote size={24} color="#10B981" />
                         </View>
-                        <Text style={styles.statTitle}>Total Loans</Text>
+                        <Text style={styles.statTitle}>Total Lend/Borrow</Text>
                         <Text style={styles.statValue}>{stats?.total_loans || 0}</Text>
                     </Card>
 
@@ -82,7 +82,7 @@ export default function AdminDashboardIndex() {
                         <View style={[styles.iconWrapper, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
                             <AlertCircle size={24} color="#F59E0B" />
                         </View>
-                        <Text style={styles.statTitle}>Active Loans</Text>
+                        <Text style={styles.statTitle}>Active Lend/Borrow</Text>
                         <Text style={styles.statValue}>{stats?.active_loans || 0}</Text>
                     </Card>
 
@@ -97,7 +97,7 @@ export default function AdminDashboardIndex() {
 
                 <Text style={styles.title}>Management</Text>
                 <Card style={styles.menuCard}>
-                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/(admin)/users' as any)}>
+                    <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/admin/users' as any)}>
                         <View style={styles.menuItemLeft}>
                             <View style={[styles.iconWrapperSmall, { backgroundColor: 'rgba(99, 102, 241, 0.1)' }]}>
                                 <Users size={20} color="#6366F1" />
@@ -110,14 +110,14 @@ export default function AdminDashboardIndex() {
                         <ChevronRight size={20} color="#94A3B8" />
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => router.push('/(admin)/loans' as any)}>
+                    <TouchableOpacity style={[styles.menuItem, { borderBottomWidth: 0 }]} onPress={() => router.push('/admin/loans' as any)}>
                         <View style={styles.menuItemLeft}>
                             <View style={[styles.iconWrapperSmall, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
                                 <Banknote size={20} color="#10B981" />
                             </View>
                             <View style={styles.menuTextWrap}>
-                                <Text style={styles.menuLabel}>Loans</Text>
-                                <Text style={styles.menuSub}>Monitor platform-wide loans</Text>
+                                <Text style={styles.menuLabel}>Lend/Borrow</Text>
+                                <Text style={styles.menuSub}>Monitor platform-wide lending and borrowing</Text>
                             </View>
                         </View>
                         <ChevronRight size={20} color="#94A3B8" />

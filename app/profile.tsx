@@ -5,15 +5,22 @@ import { Screen, Card, Text, View } from '@/components/Themed';
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase';
 import { CURRENCIES } from '@/constants/Currencies';
+import { AppLanguage, normalizeLanguage, SUPPORTED_LANGUAGES } from '@/constants/i18n';
+import { useI18n } from '@/hooks/useI18n';
+
+const isMissingDefaultLanguageColumn = (message?: string) =>
+  String(message || '').toLowerCase().includes('default_language');
 
 export default function ProfileScreen() {
-  const { user } = useAuthStore();
+  const { user, setLanguage } = useAuthStore();
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [currencyDefault, setCurrencyDefault] = useState('USD');
+  const [defaultLanguage, setDefaultLanguage] = useState<AppLanguage>('en');
 
   useEffect(() => {
     if (!user?.id) return;
@@ -24,11 +31,21 @@ export default function ProfileScreen() {
     if (!user?.id) return;
     setInitializing(true);
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('profiles')
-      .select('full_name, email, phone, currency_default')
+      .select('full_name, email, phone, currency_default, default_language')
       .eq('id', user.id)
       .maybeSingle();
+
+    if (error && isMissingDefaultLanguageColumn(error.message)) {
+      const fallback = await supabase
+        .from('profiles')
+        .select('full_name, email, phone, currency_default')
+        .eq('id', user.id)
+        .maybeSingle();
+      data = fallback.data as any;
+      error = fallback.error as any;
+    }
 
     if (error) {
       Alert.alert('Error', error.message);
@@ -41,6 +58,7 @@ export default function ProfileScreen() {
       setEmail(data.email || user.email || '');
       setPhone(data.phone || '');
       setCurrencyDefault(data.currency_default || 'USD');
+      setDefaultLanguage(normalizeLanguage((data as any).default_language));
     } else {
       setEmail(user.email || '');
     }
@@ -56,15 +74,35 @@ export default function ProfileScreen() {
 
     setLoading(true);
 
-    const { error } = await supabase.from('profiles').update(
+    const patch = {
+      full_name: fullName.trim() || null,
+      phone: phone.trim() || null,
+      email: email.trim() || user.email || null,
+      currency_default: currencyDefault,
+      default_language: defaultLanguage,
+      updated_at: new Date().toISOString(),
+    };
+
+    let languageSavedWithFallback = false;
+    let { error } = await supabase.from('profiles').update(
       {
-        full_name: fullName.trim() || null,
-        phone: phone.trim() || null,
-        email: email.trim() || user.email || null,
-        currency_default: currencyDefault,
-        updated_at: new Date().toISOString(),
+        ...patch,
       }
     ).eq('id', user.id);
+
+    if (error && isMissingDefaultLanguageColumn(error.message)) {
+      const fallback = await supabase.from('profiles').update(
+        {
+          full_name: patch.full_name,
+          phone: patch.phone,
+          email: patch.email,
+          currency_default: patch.currency_default,
+          updated_at: patch.updated_at,
+        }
+      ).eq('id', user.id);
+      error = fallback.error as any;
+      languageSavedWithFallback = !error;
+    }
 
     setLoading(false);
 
@@ -73,18 +111,25 @@ export default function ProfileScreen() {
       return;
     }
 
-    Alert.alert('Success', 'Profile updated');
+    setLanguage(defaultLanguage);
+
+    Alert.alert(
+      'Success',
+      languageSavedWithFallback
+        ? 'Profile updated. Run the latest Supabase migration to persist Default Language.'
+        : 'Profile updated'
+    );
   };
 
   return (
     <Screen style={styles.container}>
-      <Stack.Screen options={{ title: 'Profile' }} />
+      <Stack.Screen options={{ title: t('Profile') }} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Card style={styles.card}>
           <Text style={styles.label}>Full Name</Text>
           <TextInput
             style={styles.input}
-            placeholder="Your full name"
+            placeholder={t('Your full name')}
             placeholderTextColor="#94A3B8"
             value={fullName}
             onChangeText={setFullName}
@@ -121,6 +166,24 @@ export default function ProfileScreen() {
               >
                 <Text style={[styles.chipText, currencyDefault === currency.code && styles.chipTextActive]}>
                   {currency.code}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <Text style={styles.label}>Default Language</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chips}>
+            {SUPPORTED_LANGUAGES.map((language) => (
+              <TouchableOpacity
+                key={language.code}
+                style={[styles.chip, defaultLanguage === language.code && styles.chipActive]}
+                onPress={() => {
+                  setDefaultLanguage(language.code);
+                  setLanguage(language.code);
+                }}
+              >
+                <Text style={[styles.chipText, defaultLanguage === language.code && styles.chipTextActive]}>
+                  {language.label}
                 </Text>
               </TouchableOpacity>
             ))}

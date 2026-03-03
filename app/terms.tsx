@@ -13,7 +13,7 @@ export default function TermsOfServiceScreen() {
                     By accessing or using the "I GOT YOU" app ("the Service"), you agree to be bound by these Terms of Service. If you disagree with any part of the terms, then you may not access the Service.{'\n\n'}
 
                     <Text style={styles.heading}>2. Description of Service</Text>{'\n'}
-                    The Service is a loan and payment tracking application that allows users to record and manage personal or business debts, both in money and items. The Service strictly provides a tracking mechanism and does not facilitate actual transfer of funds or items.{'\n\n'}
+                    The Service is a lending/borrowing and payment tracking application that allows users to record and manage personal or business debts, both in money and items. The Service strictly provides a tracking mechanism and does not facilitate actual transfer of funds or items.{'\n\n'}
 
                     <Text style={styles.heading}>3. User Responsibilities</Text>{'\n'}
                     You are responsible for the accuracy of all information you input into the Service. You agree that the app is merely a ledger and you solely bear the responsibility for any agreements, collections, or legal actions outside the Service.{'\n\n'}

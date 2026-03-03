@@ -80,7 +80,7 @@ export default function RequestsScreen() {
                 </RNView>
                 <RNView style={styles.headerInfo}>
                     <Text style={styles.requestType}>
-                        {item.type === 'loan_validation' ? 'Loan Validation' :
+                        {item.type === 'loan_validation' ? 'Lend/Borrow Validation' :
                             item.type === 'payment_validation' ? 'Payment Validation' :
                                 'Debt Reduction Request'}
                     </Text>

@@ -7,7 +7,7 @@ import { useRouter, Stack, useFocusEffect } from 'expo-router';
 import { X, Check, ChevronDown, Camera, Image as ImageIcon, Wallet, Box, Plus } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
-import { scheduleLoanReminder } from '@/services/notificationService';
+import { scheduleLoanReminderForUser } from '@/services/notificationService';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { CURRENCIES, getCurrencySymbol } from '@/constants/Currencies';
@@ -134,7 +134,7 @@ export default function NewLoanScreen() {
         const parsedReminderInterval = parseInt(reminderInterval) || 1;
 
         if (category === 'money' && (!amount || Number.isNaN(parsedAmount) || parsedAmount <= 0)) {
-            Alert.alert('Error', 'Amount is required for money loans');
+            Alert.alert('Error', 'Amount is required for money lending/borrowing');
             return;
         }
         if (category === 'item' && !normalizedItemName) {
@@ -256,7 +256,8 @@ export default function NewLoanScreen() {
             }
 
             if (reminderFrequency !== 'none' && newLoan) {
-                await scheduleLoanReminder(
+                await scheduleLoanReminderForUser(
+                    user.id,
                     newLoan.id,
                     selectedContact?.name || 'Someone',
                     category === 'money' ? parsedAmount : 0,

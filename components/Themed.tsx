@@ -2,12 +2,15 @@
  * Learn more about Light and Dark modes:
  * https://docs.expo.io/guides/color-schemes/
  */
+import React from 'react';
 import { Text as DefaultText, View as DefaultView, ViewStyle } from 'react-native';
 import { AnimatedBackground } from './AnimatedBackground';
 
 import { useColorScheme } from './useColorScheme';
 
 import Colors from '@/constants/Colors';
+import { translateText } from '@/constants/i18n';
+import { useAuthStore } from '@/store/authStore';
 
 type ThemeProps = {
   lightColor?: string;
@@ -16,6 +19,18 @@ type ThemeProps = {
 
 export type TextProps = ThemeProps & DefaultText['props'];
 export type ViewProps = ThemeProps & DefaultView['props'];
+
+function translateChildren(node: React.ReactNode, language: 'en' | 'es' | 'fr' | 'it'): React.ReactNode {
+  if (typeof node === 'string') return translateText(node, language);
+  if (Array.isArray(node)) return node.map((child) => translateChildren(child, language));
+  if (React.isValidElement<{ children?: React.ReactNode }>(node) && node.props?.children) {
+    return React.cloneElement(node, {
+      ...node.props,
+      children: translateChildren(node.props.children, language),
+    });
+  }
+  return node;
+}
 
 export function useThemeColor(
   props: { light?: string; dark?: string },
@@ -32,10 +47,16 @@ export function useThemeColor(
 }
 
 export function Text(props: TextProps) {
-  const { style, lightColor, darkColor, ...otherProps } = props;
+  const { style, lightColor, darkColor, children, ...otherProps } = props;
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const language = useAuthStore((state) => state.language);
+  const translatedChildren = translateChildren(children, language);
 
-  return <DefaultText style={[{ color }, style]} {...otherProps} />;
+  return (
+    <DefaultText style={[{ color }, style]} {...otherProps}>
+      {translatedChildren}
+    </DefaultText>
+  );
 }
 
 export function View(props: ViewProps) {

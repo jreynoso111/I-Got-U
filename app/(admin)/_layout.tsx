@@ -1,15 +1,18 @@
 import React from 'react';
 import { Stack, Redirect } from 'expo-router';
 import { useAuthStore } from '@/store/authStore';
+import { useI18n } from '@/hooks/useI18n';
 
 export default function AdminLayout() {
     const { role, initialized } = useAuthStore();
+    const { t } = useI18n();
+    const normalizedRole = (role || '').toLowerCase().trim();
 
     if (!initialized) {
         return null; // Wait for auth store to load
     }
 
-    if (role !== 'admin') {
+    if (normalizedRole !== 'admin') {
         // Redirect standard users back to home
         return <Redirect href="/(tabs)" />;
     }
@@ -27,9 +30,9 @@ export default function AdminLayout() {
                 headerBackTitle: 'Back',
             }}
         >
-            <Stack.Screen name="index" options={{ title: 'Admin Dashboard' }} />
-            <Stack.Screen name="users" options={{ title: 'Platform Users' }} />
-            <Stack.Screen name="loans" options={{ title: 'Platform Loans' }} />
+            <Stack.Screen name="index" options={{ title: t('Admin Dashboard') }} />
+            <Stack.Screen name="users" options={{ title: t('Platform Users') }} />
+            <Stack.Screen name="loans" options={{ title: t('Platform Lend/Borrow') }} />
         </Stack>
     );
 }

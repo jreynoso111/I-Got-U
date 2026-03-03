@@ -3,14 +3,44 @@ import { usePathname, useRouter, useSegments } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normalizeLanguage } from '@/constants/i18n';
 
 const LAST_PROTECTED_PATH_KEY = 'last_protected_path';
+const isMissingDefaultLanguageColumn = (message?: string) =>
+    String(message || '').toLowerCase().includes('default_language');
 
 export const useAuth = () => {
-    const { setSession, setUser, setRole, setInitialized, session, initialized } = useAuthStore();
+    const { setSession, setUser, setRole, setLanguage, setInitialized, session, initialized } = useAuthStore();
     const pathname = usePathname();
     const router = useRouter();
     const segments = useSegments();
+
+    const fetchProfileMeta = async (userId: string) => {
+        let { data, error } = await supabase
+            .from('profiles')
+            .select('role, default_language')
+            .eq('id', userId)
+            .single();
+
+        if (error && isMissingDefaultLanguageColumn(error.message)) {
+            const fallback = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', userId)
+                .single();
+            data = fallback.data as any;
+            error = fallback.error as any;
+        }
+
+        const normalizedRole =
+            typeof (data as any)?.role === 'string' && (data as any).role.trim().length > 0
+                ? (data as any).role.toLowerCase().trim()
+                : 'user';
+
+        const language = normalizeLanguage((data as any)?.default_language);
+
+        return { normalizedRole, language };
+    };
 
     useEffect(() => {
         // 1. Initial session check
@@ -20,10 +50,12 @@ export const useAuth = () => {
             setUser(session?.user ?? null);
 
             if (session?.user?.id) {
-                const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-                setRole(data?.role ?? 'user');
+                const { normalizedRole, language } = await fetchProfileMeta(session.user.id);
+                setRole(normalizedRole);
+                setLanguage(language);
             } else {
                 setRole(null);
+                setLanguage('en');
             }
 
             setInitialized(true);
@@ -33,15 +65,23 @@ export const useAuth = () => {
 
         // 2. Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (_event, session) => {
+            async (event, session) => {
                 setSession(session);
                 setUser(session?.user ?? null);
 
                 if (session?.user?.id) {
-                    const { data } = await supabase.from('profiles').select('role').eq('id', session.user.id).single();
-                    setRole(data?.role ?? 'user');
+                    const { normalizedRole, language } = await fetchProfileMeta(session.user.id);
+                    setRole(normalizedRole);
+                    setLanguage(language);
                 } else {
                     setRole(null);
+                    setLanguage('en');
+                    // Prevent stale protected-route recovery after a sign-out.
+                    await AsyncStorage.removeItem(LAST_PROTECTED_PATH_KEY);
+                }
+
+                if (event === 'SIGNED_OUT') {
+                    router.replace('/');
                 }
             }
         );
@@ -58,6 +98,7 @@ export const useAuth = () => {
         const normalizedPath = pathname.toLowerCase();
         const topSegment = segments[0];
         const inTabsRoute = topSegment === '(tabs)';
+        const inAdminRoute = topSegment === '(admin)' || topSegment === 'admin';
         const inAuthRoute =
             topSegment === '(auth)' ||
             normalizedPath.startsWith('/auth/callback') ||
@@ -65,7 +106,7 @@ export const useAuth = () => {
             normalizedPath.startsWith('/register') ||
             normalizedPath.startsWith('/forgot-password') ||
             normalizedPath.startsWith('/reset-password');
-        const isLandingPage = normalizedPath === '/' && !inTabsRoute;
+        const isLandingPage = normalizedPath === '/' && !inTabsRoute && !inAdminRoute;
         const isResetPassword = normalizedPath.startsWith('/reset-password');
         const isEphemeralFormRoute =
             normalizedPath.startsWith('/new-contact') ||

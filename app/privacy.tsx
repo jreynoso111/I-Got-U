@@ -10,7 +10,7 @@ export default function PrivacyPolicyScreen() {
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <Text style={styles.content}>
                     <Text style={styles.heading}>1. Information We Collect</Text>{'\n'}
-                    We collect information that you manually provide, such as contact details, loan amounts, payment history, and account information needed to provide the service. We also collect automatically generated information, like log data and device information.{'\n\n'}
+                    We collect information that you manually provide, such as contact details, lend/borrow amounts, payment history, and account information needed to provide the service. We also collect automatically generated information, like log data and device information.{'\n\n'}
 
                     <Text style={styles.heading}>2. How We Use Information</Text>{'\n'}
                     We use the information we collect to operate and improve our App, maintain your account, process records of transactions securely, and occasionally contact you regarding important account updates.{'\n\n'}
