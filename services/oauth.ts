@@ -67,12 +67,17 @@ function readParam(url: string, key: string): string | null {
 
 function getGoogleRedirectUrl() {
   const isExpoGo = Constants.appOwnership === 'expo';
+  const appScheme =
+    Constants.expoConfig?.scheme ||
+    (Constants as any).manifest2?.extra?.expoClient?.scheme ||
+    (Constants as any).manifest?.scheme ||
+    'ioutrack';
   if (Platform.OS === 'web' || isExpoGo) {
     return Linking.createURL('auth/callback');
   }
 
   return Linking.createURL('auth/callback', {
-    scheme: 'igotyou',
+    scheme: appScheme,
   });
 }
 

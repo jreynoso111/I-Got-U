@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 import Purchases, {
   CustomerInfo,
   LOG_LEVEL,
@@ -9,10 +10,84 @@ import Purchases, {
 import { supabase } from '@/services/supabase';
 import { PlanTier } from '@/services/subscriptionPlan';
 
-const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() || '';
-const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() || '';
-const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || 'premium';
-const REVENUECAT_OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID?.trim() || '';
+function getExpoExtra() {
+  const constants = Constants as any;
+  return (
+    Constants.expoConfig?.extra ||
+    constants.manifest2?.extra?.expoClient?.extra ||
+    constants.manifest?.extra ||
+    {}
+  );
+}
+
+function readBillingConfig(name: string, extraValue?: unknown, fallback = '') {
+  const envValue = process.env[name];
+  if (typeof envValue === 'string' && envValue.trim()) {
+    return envValue.trim();
+  }
+
+  if (typeof extraValue === 'string' && extraValue.trim()) {
+    return extraValue.trim();
+  }
+
+  return fallback;
+}
+
+const expoExtra = getExpoExtra();
+const revenueCatExtra = (expoExtra?.revenueCat || {}) as {
+  iosApiKey?: string;
+  androidApiKey?: string;
+  entitlementId?: string;
+  offeringId?: string;
+};
+
+const REVENUECAT_IOS_API_KEY = readBillingConfig(
+  'EXPO_PUBLIC_REVENUECAT_IOS_API_KEY',
+  revenueCatExtra.iosApiKey,
+  ''
+);
+const REVENUECAT_ANDROID_API_KEY = readBillingConfig(
+  'EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY',
+  revenueCatExtra.androidApiKey,
+  ''
+);
+const REVENUECAT_ENTITLEMENT_ID = readBillingConfig(
+  'EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID',
+  revenueCatExtra.entitlementId,
+  'premium'
+);
+const REVENUECAT_OFFERING_ID = readBillingConfig(
+  'EXPO_PUBLIC_REVENUECAT_OFFERING_ID',
+  revenueCatExtra.offeringId,
+  ''
+);
+
+function getRevenueCatEntitlementCandidates() {
+  return Array.from(
+    new Set(
+      REVENUECAT_ENTITLEMENT_ID
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function getPrimaryRevenueCatEntitlementId() {
+  return getRevenueCatEntitlementCandidates()[0] || 'ioutrack pro';
+}
+
+function resolveActiveEntitlement(customerInfo?: CustomerInfo | null) {
+  const active = customerInfo?.entitlements?.active || {};
+  for (const candidate of getRevenueCatEntitlementCandidates()) {
+    const entitlement = active?.[candidate];
+    if (entitlement?.isActive) {
+      return entitlement;
+    }
+  }
+
+  return null;
+}
 
 type BillingUser = {
   userId?: string | null;
@@ -88,11 +163,11 @@ export function getBillingUnavailableReason() {
 }
 
 export function getBillingEntitlementId() {
-  return REVENUECAT_ENTITLEMENT_ID;
+  return getPrimaryRevenueCatEntitlementId();
 }
 
 export function getPlanTierFromCustomerInfo(customerInfo?: CustomerInfo | null): PlanTier {
-  const entitlement = customerInfo?.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID];
+  const entitlement = resolveActiveEntitlement(customerInfo);
   return entitlement?.isActive ? 'premium' : 'free';
 }
 

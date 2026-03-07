@@ -29,11 +29,26 @@ function parseBearerToken(req: Request) {
   return header.slice(7).trim();
 }
 
+function getEntitlementCandidates() {
+  return Array.from(
+    new Set(
+      REVENUECAT_ENTITLEMENT_ID
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+    )
+  );
+}
+
 function resolvePlanTierFromSubscriber(subscriber: any) {
-  const entitlement =
-    subscriber?.entitlements?.[REVENUECAT_ENTITLEMENT_ID] ||
-    subscriber?.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID] ||
-    null;
+  let entitlement = null;
+  for (const candidate of getEntitlementCandidates()) {
+    entitlement =
+      subscriber?.entitlements?.[candidate] ||
+      subscriber?.entitlements?.active?.[candidate] ||
+      null;
+    if (entitlement) break;
+  }
 
   if (!entitlement) {
     return 'free';

@@ -80,7 +80,7 @@ export default function HelpSupportScreen() {
           ))}
         </Card>
 
-        <Text style={styles.footer}>I GOT U v1.0.0</Text>
+        <Text style={styles.footer}>IOUTrack v1.0.0</Text>
       </ScrollView>
     </Screen>
   );
