@@ -297,7 +297,7 @@ export default function ProfileScreen() {
 
     try {
       await Share.share({
-        message: `Add me on I GOT U with friend code ${friendCode}`,
+        message: `Add me on IOUTrack with friend code ${friendCode}`,
       });
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'Could not open the share sheet.');

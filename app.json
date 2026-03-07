@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "I GOT U",
-    "slug": "igotyou",
+    "name": "IOUTrack",
+    "slug": "ioutrack",
     "version": "1.0.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "igotyou",
+    "scheme": "ioutrack",
     "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/splash-icon.png",
@@ -19,7 +19,7 @@
       "supportsTablet": true,
       "buildNumber": "1",
       "infoPlist": {
-        "NSFaceIDUsageDescription": "Use Face ID to securely unlock your account in I GOT U."
+        "NSFaceIDUsageDescription": "Use Face ID to securely unlock your account in IOUTrack."
       },
       "bundleIdentifier": "com.anonymous.igotyou"
     },
@@ -45,7 +45,7 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow I GOT U to access your photos so you can choose a profile picture or attach an image to a record."
+          "photosPermission": "Allow IOUTrack to access your photos so you can choose a profile picture or attach an image to a record."
         }
       ],
       [

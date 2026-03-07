@@ -171,7 +171,7 @@ export default function SettingsScreen() {
                     <Text style={styles.signOutText}>Sign Out</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.version}>I GOT U v1.0.0 • jreynoso</Text>
+                <Text style={styles.version}>IOUTrack v1.0.0 • jreynoso</Text>
             </ScrollView>
         </Screen>
     );

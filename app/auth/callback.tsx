@@ -30,7 +30,7 @@ export default function AuthCallbackScreen() {
     }
 
     const query = params.toString();
-    return query ? `igotyou://auth/callback?${query}` : null;
+    return query ? `ioutrack://auth/callback?${query}` : null;
   }, [searchParams]);
 
   const initialUrl = useMemo(() => {

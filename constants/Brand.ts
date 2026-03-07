@@ -1,5 +1,5 @@
-export const BRAND_NAME = 'I Got You';
-export const BRAND_TAGLINE = 'Lending made simple, secure, and human.';
+export const BRAND_NAME = 'IOUTrack';
+export const BRAND_TAGLINE = 'Track friendly loans and shared records without the friction.';
 
 export const BRAND_COLORS = {
   primary: '#6366F1',
