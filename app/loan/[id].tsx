@@ -1225,7 +1225,7 @@ export default function LoanDetailScreen() {
                 )}
 
             </RNView>
-        </Screen >
+        </Screen>
     );
 }
 

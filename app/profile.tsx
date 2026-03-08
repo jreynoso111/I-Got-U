@@ -24,7 +24,7 @@ const isMissingFriendCodeColumn = (message?: string) =>
   String(message || '').toLowerCase().includes('friend_code');
 
 export default function ProfileScreen() {
-  const { user, setLanguage, setPlanTier } = useAuthStore();
+  const { user, planTier, setLanguage, setPlanTier } = useAuthStore();
   const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -522,24 +522,32 @@ export default function ProfileScreen() {
           </RNView>
 
           <RNView style={styles.inviteProgressCard}>
-            <Text style={styles.inviteProgressEyebrow}>Referral Progress</Text>
+            <Text style={styles.inviteProgressEyebrow}>
+              {planTier === 'premium' ? 'Referral Status' : 'Referral Progress'}
+            </Text>
             <Text style={styles.inviteProgressTitle}>
-              {`${inviteSummary?.referralCount || 0}/3 uses toward your next Premium month`}
+              {planTier === 'premium'
+                ? 'Premium is already active on this account'
+                : `${inviteSummary?.referralCount || 0}/3 uses toward your next Premium month`}
             </Text>
             <Text style={styles.inviteProgressHint}>
               {rewardExpiryLabel
                 ? `Referral Premium active until ${rewardExpiryLabel}.`
-                : `${inviteSummary?.referralsUntilNextReward || 3} more successful uses to unlock Premium.`}
+                : planTier === 'premium'
+                  ? 'Your account already has Premium access.'
+                  : `${inviteSummary?.referralsUntilNextReward || 3} more successful uses to unlock Premium.`}
             </Text>
 
-            <RNView style={styles.progressTrack}>
-              <RNView
-                style={[
-                  styles.progressFill,
-                  { width: `${Math.min(((inviteSummary?.referralCount || 0) % 3 || 0) / 3 * 100, 100)}%` },
-                ]}
-              />
-            </RNView>
+            {planTier !== 'premium' ? (
+              <RNView style={styles.progressTrack}>
+                <RNView
+                  style={[
+                    styles.progressFill,
+                    { width: `${Math.min(((inviteSummary?.referralCount || 0) % 3 || 0) / 3 * 100, 100)}%` },
+                  ]}
+                />
+              </RNView>
+            ) : null}
 
             <Text style={styles.label}>Redeem Someone Else's Invite Code</Text>
             <TextInput

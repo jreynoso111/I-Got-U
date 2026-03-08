@@ -97,7 +97,7 @@ export function ReferralRewardModal() {
       subtitle: `Three people used your invite code, so Buddy Balance activated ${referralReward?.rewardMonths || 1} month of Premium for you.`,
       leftBadge: 'Referral reward',
       rightBadge: 'Premium granted',
-      footer: 'Unlimited friends, unlimited records, and the celebration opens only the first time you come back after earning it.',
+      footer: 'Unlimited friends, unlimited records, and this celebration appears the first time the app detects the reward, including after a refresh or page change.',
       button: 'Open My Premium',
     },
     purchase: {
@@ -105,7 +105,7 @@ export function ReferralRewardModal() {
       subtitle: 'Your payment was processed and Premium access is now active on this account.',
       leftBadge: 'Purchase complete',
       rightBadge: 'Premium active',
-      footer: 'This welcome screen appears only on the first app entry after the purchase is granted.',
+      footer: 'This welcome screen appears the first time the app detects the purchase, including after a refresh or page change.',
       button: 'Enter Premium',
     },
     admin: {
@@ -113,7 +113,7 @@ export function ReferralRewardModal() {
       subtitle: 'An administrator activated Premium access for this account, and the upgrade is ready to use now.',
       leftBadge: 'Admin granted',
       rightBadge: 'Premium active',
-      footer: 'This notice appears only on the first app entry after the admin upgrade is applied.',
+      footer: 'This notice appears the first time the app detects the admin upgrade, including after a refresh or page change.',
       button: 'Use Premium',
     },
   } as const;

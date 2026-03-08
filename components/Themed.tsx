@@ -22,7 +22,11 @@ export type ViewProps = ThemeProps & DefaultView['props'];
 
 function translateChildren(node: React.ReactNode, language: 'en' | 'es' | 'fr' | 'it'): React.ReactNode {
   if (typeof node === 'string') return translateText(node, language);
-  if (Array.isArray(node)) return node.map((child) => translateChildren(child, language));
+  if (Array.isArray(node)) {
+    return React.Children.toArray(
+      node.map((child) => translateChildren(child, language))
+    );
+  }
   if (React.isValidElement<{ children?: React.ReactNode }>(node) && node.props?.children) {
     return React.cloneElement(node, {
       ...node.props,

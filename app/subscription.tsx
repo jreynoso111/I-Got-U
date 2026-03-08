@@ -1,21 +1,29 @@
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, View as RNView } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
 import { Check, Shield, Smartphone } from 'lucide-react-native';
 
 import { Card, Screen, Text } from '@/components/Themed';
-import { getBillingEntitlementId, getBillingUnavailableReason, isBillingAvailable } from '@/services/billing';
+import {
+  getBillingEntitlementId,
+  getBillingUnavailableReason,
+  isBillingAvailable,
+  purchasePremiumPackage,
+  restorePremiumAccess,
+} from '@/services/billing';
 import { PLAN_LIMITS } from '@/services/subscriptionPlan';
-import { formatReferralExpiry, getMyInviteSummary } from '@/services/referrals';
+import { formatReferralExpiry, getMyInviteSummary, InviteSummary } from '@/services/referrals';
 import { useAuthStore } from '@/store/authStore';
 
 export default function SubscriptionScreen() {
   const planTier = useAuthStore((state) => state.planTier);
+  const user = useAuthStore((state) => state.user);
   const planTitle = planTier === 'premium' ? 'Premium active' : 'Free plan';
   const unavailableReason = getBillingUnavailableReason();
-  const [referralSummary, setReferralSummary] = React.useState<{
-    referralCount: number;
-    premiumReferralExpiresAt: string | null;
-  } | null>(null);
+  const [purchasePending, setPurchasePending] = React.useState(false);
+  const [restorePending, setRestorePending] = React.useState(false);
+  const [inviteEmail, setInviteEmail] = React.useState('');
+  const [sendingInvite, setSendingInvite] = React.useState(false);
+  const [referralSummary, setReferralSummary] = React.useState<InviteSummary | null>(null);
 
   React.useEffect(() => {
     let active = true;
@@ -23,10 +31,7 @@ export default function SubscriptionScreen() {
     const loadReferralSummary = async () => {
       const { data } = await getMyInviteSummary();
       if (!active || !data) return;
-      setReferralSummary({
-        referralCount: data.referralCount,
-        premiumReferralExpiresAt: data.premiumReferralExpiresAt,
-      });
+      setReferralSummary(data);
     };
 
     void loadReferralSummary();
@@ -35,6 +40,87 @@ export default function SubscriptionScreen() {
       active = false;
     };
   }, []);
+
+  const handlePurchase = async () => {
+    if (purchasePending) return;
+    setPurchasePending(true);
+
+    try {
+      await purchasePremiumPackage();
+      Alert.alert('Premium activated', 'Your membership is now active.');
+    } catch (error: any) {
+      Alert.alert('Purchase unavailable', error?.message || 'Premium checkout is not available right now.');
+    } finally {
+      setPurchasePending(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    if (restorePending) return;
+    setRestorePending(true);
+
+    try {
+      const result = await restorePremiumAccess();
+      if (result.synced && result.planTier === 'premium') {
+        Alert.alert('Premium restored', 'Your Premium membership was restored.');
+        return;
+      }
+
+      Alert.alert('Restore unavailable', result.error || 'No Premium purchase could be restored right now.');
+    } finally {
+      setRestorePending(false);
+    }
+  };
+
+  const handleSendInviteEmail = async () => {
+    const normalizedEmail = inviteEmail.trim().toLowerCase();
+    if (!normalizedEmail) {
+      Alert.alert('Email required', 'Enter an email address to send the invite.');
+      return;
+    }
+
+    if (!/\S+@\S+\.\S+/.test(normalizedEmail)) {
+      Alert.alert('Invalid email', 'Enter a valid email address.');
+      return;
+    }
+
+    if (!referralSummary?.inviteCode) {
+      Alert.alert('Invite code unavailable', 'Your invite code is not ready yet. Try again in a moment.');
+      return;
+    }
+
+    const inviterLabel =
+      typeof user?.user_metadata?.full_name === 'string' && user.user_metadata.full_name.trim()
+        ? user.user_metadata.full_name.trim()
+        : user?.email || 'me';
+    const subject = 'Register on Buddy Balance with my friend code';
+    const body =
+      `Hi,\n\n` +
+      `${inviterLabel} is inviting you to register on Buddy Balance.\n\n` +
+      `When you create your account, use this friend code: ${referralSummary.inviteCode}\n\n` +
+      `Buddy Balance helps friends and family keep track of money and shared records in one place.\n\n` +
+      `See you in the app.`;
+    const mailtoUrl =
+      `mailto:${encodeURIComponent(normalizedEmail)}` +
+      `?subject=${encodeURIComponent(subject)}` +
+      `&body=${encodeURIComponent(body)}`;
+
+    setSendingInvite(true);
+    try {
+      const supported = await Linking.canOpenURL(mailtoUrl);
+      if (!supported) {
+        Alert.alert('Email unavailable', 'This device cannot open the email composer right now.');
+        return;
+      }
+
+      await Linking.openURL(mailtoUrl);
+      Alert.alert('Invitation ready', 'Your email app opened with the invitation message prefilled.');
+    } catch (error: any) {
+      Alert.alert('Could not send invite', error?.message || 'The email composer could not be opened.');
+    } finally {
+      setSendingInvite(false);
+    }
+  };
 
   return (
     <Screen style={styles.container}>
@@ -49,6 +135,33 @@ export default function SubscriptionScreen() {
             Buddy Balance Pro removes the friend and active record limits. Android checkout will be handled directly by Google
             Play.
           </Text>
+          {planTier !== 'premium' ? (
+            <RNView style={styles.ctaGroup}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.primaryButton, purchasePending && styles.buttonDisabled]}
+                onPress={() => void handlePurchase()}
+                disabled={purchasePending}
+              >
+                {purchasePending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Buy Premium</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={[styles.secondaryButton, restorePending && styles.buttonDisabled]}
+                onPress={() => void handleRestore()}
+                disabled={restorePending}
+              >
+                {restorePending ? <ActivityIndicator size="small" color="#4F46E5" /> : <Text style={styles.secondaryButtonText}>Restore purchase</Text>}
+              </TouchableOpacity>
+
+              {isBillingAvailable() ? (
+                <Text style={styles.ctaHint}>Use this screen to start Premium checkout directly from the app.</Text>
+              ) : (
+                <Text style={styles.ctaHint}>{unavailableReason}</Text>
+              )}
+            </RNView>
+          ) : null}
         </Card>
 
         <Card style={styles.compareCard}>
@@ -57,7 +170,7 @@ export default function SubscriptionScreen() {
             `Unlimited linked friends instead of ${PLAN_LIMITS.free.linkedFriends}`,
             `Unlimited active records instead of ${PLAN_LIMITS.free.activeRecords}`,
             'Priority support for account issues',
-            '1 free month of Premium every 3 successful invite code uses',
+            ...(planTier === 'premium' ? [] : ['1 free month of Premium every 3 successful invite code uses']),
             `Premium plan tier: "${getBillingEntitlementId()}"`,
           ].map((benefit) => (
             <RNView key={benefit} style={styles.benefitRow}>
@@ -96,6 +209,37 @@ export default function SubscriptionScreen() {
             </Text>
           ) : null}
         </Card>
+
+        {planTier !== 'premium' && referralSummary ? (
+          <Card style={styles.inviteCard}>
+            <Text style={styles.sectionTitle}>Invite 3 people</Text>
+            <Text style={styles.inviteText}>
+              Send a prewritten email that invites someone to register and includes your friend code automatically.
+            </Text>
+            <Text style={styles.inviteCodeBadge}>Your friend code: {referralSummary.inviteCode || 'Loading...'}</Text>
+            <TextInput
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              placeholder="friend@example.com"
+              placeholderTextColor="#94A3B8"
+              style={styles.inviteInput}
+            />
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={[styles.primaryButton, sendingInvite && styles.buttonDisabled]}
+              onPress={() => void handleSendInviteEmail()}
+              disabled={sendingInvite}
+            >
+              {sendingInvite ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Send invite</Text>}
+            </TouchableOpacity>
+            <Text style={styles.inviteHelper}>
+              This opens the device email app with a ready-to-send invitation that already includes your friend code.
+            </Text>
+          </Card>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -142,7 +286,50 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#64748B',
   },
+  ctaGroup: {
+    marginTop: 20,
+    gap: 12,
+  },
+  primaryButton: {
+    minHeight: 52,
+    borderRadius: 16,
+    backgroundColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  primaryButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  ctaHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#64748B',
+  },
   compareCard: {
+    padding: 20,
+  },
+  inviteCard: {
     padding: 20,
   },
   sectionTitle: {
@@ -207,5 +394,40 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     color: '#6366F1',
     fontWeight: '700',
+  },
+  inviteText: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#475569',
+  },
+  inviteCodeBadge: {
+    marginTop: 14,
+    marginBottom: 14,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: '#EEF2FF',
+    color: '#4338CA',
+    fontSize: 13,
+    fontWeight: '800',
+    overflow: 'hidden',
+  },
+  inviteInput: {
+    minHeight: 52,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#0F172A',
+    marginBottom: 12,
+  },
+  inviteHelper: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
   },
 });

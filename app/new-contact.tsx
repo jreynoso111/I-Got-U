@@ -24,6 +24,8 @@ export default function NewContactScreen() {
     const [existingTargetUserId, setExistingTargetUserId] = useState<string | null>(null);
     const [existingLinkStatus, setExistingLinkStatus] = useState<'private' | 'pending' | 'accepted'>('private');
     const [inviteSentVisible, setInviteSentVisible] = useState(false);
+    const [duplicateFriendVisible, setDuplicateFriendVisible] = useState(false);
+    const [duplicateFriendLabel, setDuplicateFriendLabel] = useState('');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const scrollViewRef = useRef<ScrollView | null>(null);
@@ -45,6 +47,11 @@ export default function NewContactScreen() {
 
     const showInviteSentConfirmation = () => {
         setInviteSentVisible(true);
+    };
+
+    const showDuplicateFriendError = (label: string) => {
+        setDuplicateFriendLabel(label);
+        setDuplicateFriendVisible(true);
     };
 
     const normalizeLinkStatus = (value?: string | null): 'private' | 'pending' | 'accepted' => {
@@ -294,7 +301,7 @@ export default function NewContactScreen() {
                 .is('deleted_at', null);
 
             if (targetDuplicates && targetDuplicates.some((duplicate: any) => duplicate.id !== contactId)) {
-                Alert.alert('Duplicate Contact', 'You already linked this friend in your contacts.');
+                showDuplicateFriendError(resolvedName || normalizedFriendCode || 'this friend');
                 setLoading(false);
                 return;
             }
@@ -616,6 +623,46 @@ export default function NewContactScreen() {
             </ScrollView>
 
             <Modal
+                visible={duplicateFriendVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={() => {
+                    setDuplicateFriendVisible(false);
+                }}
+            >
+                <Pressable
+                    style={styles.duplicateModalBackdrop}
+                    onPress={() => {
+                        setDuplicateFriendVisible(false);
+                    }}
+                >
+                    <Pressable style={styles.duplicateModalCard} onPress={(event) => event.stopPropagation()}>
+                        <View style={styles.duplicateIconWrap}>
+                            <X size={28} color="#B91C1C" />
+                        </View>
+                        <Text style={styles.duplicateEyebrow}>Duplicate friend</Text>
+                        <Text style={styles.duplicateTitle}>This friend is already in your contacts</Text>
+                        <Text style={styles.duplicateText}>
+                            {duplicateFriendLabel
+                                ? `${duplicateFriendLabel} is already linked in this account.`
+                                : 'This account is already linked in your contacts.'}
+                        </Text>
+                        <Text style={styles.duplicateHint}>
+                            No new invitation was sent. Open the existing contact if you want to edit or relink it.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.duplicateButton}
+                            onPress={() => {
+                                setDuplicateFriendVisible(false);
+                            }}
+                        >
+                            <Text style={styles.duplicateButtonText}>Understood</Text>
+                        </TouchableOpacity>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+
+            <Modal
                 visible={inviteSentVisible}
                 transparent
                 animationType="fade"
@@ -795,6 +842,72 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     successButtonText: {
+        color: '#fff',
+        fontSize: 15,
+        fontWeight: '800',
+    },
+    duplicateModalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(15, 23, 42, 0.55)',
+        justifyContent: 'center',
+        padding: 24,
+    },
+    duplicateModalCard: {
+        borderRadius: 28,
+        padding: 24,
+        backgroundColor: '#FEF2F2',
+        borderWidth: 1,
+        borderColor: '#FECACA',
+        shadowColor: '#000',
+        shadowOpacity: 0.14,
+        shadowRadius: 18,
+        shadowOffset: { width: 0, height: 10 },
+        elevation: 8,
+    },
+    duplicateIconWrap: {
+        width: 60,
+        height: 60,
+        borderRadius: 999,
+        backgroundColor: '#FEE2E2',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginBottom: 16,
+    },
+    duplicateEyebrow: {
+        fontSize: 12,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        color: '#B91C1C',
+        marginBottom: 8,
+    },
+    duplicateTitle: {
+        fontSize: 24,
+        lineHeight: 28,
+        fontWeight: '800',
+        color: '#111827',
+    },
+    duplicateText: {
+        marginTop: 10,
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#7F1D1D',
+        fontWeight: '700',
+    },
+    duplicateHint: {
+        marginTop: 8,
+        fontSize: 14,
+        lineHeight: 21,
+        color: '#4B5563',
+    },
+    duplicateButton: {
+        marginTop: 22,
+        borderRadius: 16,
+        backgroundColor: '#DC2626',
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    duplicateButtonText: {
         color: '#fff',
         fontSize: 15,
         fontWeight: '800',

@@ -1,9 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { StyleSheet, ScrollView, TouchableOpacity, View as RNView, RefreshControl } from 'react-native';
+import { StyleSheet, ScrollView, TouchableOpacity, View as RNView, RefreshControl, Share, Alert } from 'react-native';
 import { Text, View, Screen, Card } from '@/components/Themed';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { ArrowUpRight, ArrowDownLeft, Plus, Wallet, Box, Bell, Clock3, AlertTriangle, CheckCircle2, UserPlus, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowUpRight, ArrowDownLeft, ArrowRight, Plus, Send, Wallet, Box, Bell, Clock3, AlertTriangle, CheckCircle2, UserPlus, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -32,7 +32,6 @@ type LoanRecord = {
 type PaymentRecord = {
   amount: number | null;
   loan_id: string;
-  created_at: string;
   payment_date: string | null;
   payment_method: 'money' | 'item' | null;
 };
@@ -60,6 +59,21 @@ export default function DashboardScreen() {
   const fabBottomOffset = bottomInset + 16;
   const scrollBottomPadding = fabBottomOffset + 84;
   const greetingTitle = accountName.trim() ? `${greeting}, ${accountName.trim()}!` : `${greeting}!`;
+
+  const handleInviteToApp = async () => {
+    if (!friendCodeReady || !friendCode) {
+      Alert.alert('Friend code unavailable', 'Your friend code is still being generated. Try again in a moment.');
+      return;
+    }
+
+    try {
+      await Share.share({
+        message: `Join me on Buddy Balance and register with my friend code ${friendCode}. The app helps us keep shared balances and records in one place.`,
+      });
+    } catch (error: any) {
+      Alert.alert('Could not open invite', error?.message || 'The share sheet could not be opened right now.');
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -141,7 +155,7 @@ export default function DashboardScreen() {
           .order('created_at', { ascending: false }),
         supabase
           .from('payments')
-          .select('amount, loan_id, created_at, payment_date, payment_method')
+          .select('amount, loan_id, payment_date, payment_method')
           .eq('user_id', user.id),
         supabase
           .from('p2p_requests')
@@ -150,8 +164,44 @@ export default function DashboardScreen() {
           .eq('status', 'pending'),
       ]);
 
-      const profileName = typeof profileResult.data?.full_name === 'string' ? profileResult.data.full_name.trim() : '';
-      let resolvedFriendCode = String((profileResult.data as any)?.friend_code || '').trim();
+      if (profileResult.error) {
+        console.error('dashboard profile load failed:', profileResult.error.message);
+      }
+      if (loansResult.error) {
+        console.error('dashboard loans load failed:', loansResult.error.message);
+      }
+      if (paymentsResult.error) {
+        console.error('dashboard payments load failed:', paymentsResult.error.message);
+      }
+      if (requestsResult.error) {
+        console.error('dashboard requests load failed:', requestsResult.error.message);
+      }
+
+      let profileData = profileResult.data;
+      if (!profileData) {
+        const { data: upsertedProfile, error: upsertError } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: user.id,
+              full_name: profileNameFromMetadata || null,
+              email: user.email || null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          )
+          .select('full_name, friend_code')
+          .maybeSingle();
+
+        if (upsertError) {
+          console.error('dashboard profile bootstrap failed:', upsertError.message);
+        } else {
+          profileData = upsertedProfile;
+        }
+      }
+
+      const profileName = typeof profileData?.full_name === 'string' ? profileData.full_name.trim() : '';
+      let resolvedFriendCode = String((profileData as any)?.friend_code || '').trim();
 
       if (!resolvedFriendCode) {
         const { data: ensuredCode, error: ensureError } = await supabase.rpc('ensure_my_friend_code');
@@ -187,7 +237,10 @@ export default function DashboardScreen() {
           paymentTotals.set(payment.loan_id, current + paymentAmount);
         }
 
-        const activityAt = payment.payment_date || payment.created_at;
+        const activityAt = payment.payment_date || '';
+        if (!activityAt) {
+          return;
+        }
         const currentActivity = paymentActivity.get(payment.loan_id);
         if (!currentActivity || getTimestamp(activityAt) > getTimestamp(currentActivity.at)) {
           paymentActivity.set(payment.loan_id, {
@@ -203,7 +256,7 @@ export default function DashboardScreen() {
         const remaining = loan.category === 'money' ? Math.max(Number(loan.amount || 0) - paid, 0) : 0;
         const latestPayment = paymentActivity.get(loan.id);
         const lastActivityAt =
-          latestPayment && getTimestamp(latestPayment.at) > getTimestamp(loan.created_at)
+          latestPayment?.at && getTimestamp(latestPayment.at) > getTimestamp(loan.created_at)
             ? latestPayment.at
             : loan.created_at;
 
@@ -297,22 +350,16 @@ export default function DashboardScreen() {
 
         <RNView style={styles.actionRow}>
           <RNView style={styles.actionColumn}>
-            <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]} onPress={() => router.push('/new-loan')}>
-              <Plus size={18} color="#FFFFFF" />
-              <Text style={styles.actionButtonPrimaryText}>New record</Text>
-            </TouchableOpacity>
-          </RNView>
-          <RNView style={styles.actionColumn}>
             <TouchableOpacity style={[styles.actionButton, styles.actionButtonSecondary]} onPress={() => router.push('/new-contact?mode=friend')}>
               <UserPlus size={18} color="#4F46E5" />
               <Text style={styles.actionButtonSecondaryText}>Add friend</Text>
             </TouchableOpacity>
-            <Text style={styles.friendCodeCaption}>
-              Friend code:{' '}
-              <Text style={styles.friendCodeValue}>
+            <RNView style={styles.friendCodeRow}>
+              <Text style={styles.friendCodeCaption}>Friend code:</Text>
+              <Text style={[styles.friendCodeCaption, styles.friendCodeValue]}>
                 {friendCodeReady ? friendCode : 'Generating...'}
               </Text>
-            </Text>
+            </RNView>
           </RNView>
         </RNView>
 
@@ -539,7 +586,23 @@ export default function DashboardScreen() {
             ))
           )}
         </View>
+
+        <Card style={styles.inviteCard}>
+          <Text style={styles.inviteCardTitle}>Invite someone to Buddy Balance</Text>
+          <Text style={styles.inviteCardText}>
+            Share your friend code and invite someone to register in the app.
+          </Text>
+          <TouchableOpacity style={[styles.actionButton, styles.actionButtonPrimary]} onPress={() => void handleInviteToApp()}>
+            <Send size={18} color="#FFFFFF" />
+            <Text style={styles.actionButtonPrimaryText}>Invite</Text>
+          </TouchableOpacity>
+        </Card>
       </ScrollView>
+
+      <RNView style={[styles.fabHint, { bottom: fabBottomOffset + 10 }]}>
+        <Text style={styles.fabHintText}>New record</Text>
+        <ArrowRight size={18} color="#4F46E5" />
+      </RNView>
 
       <TouchableOpacity style={[styles.fab, { bottom: fabBottomOffset }]} onPress={() => router.push('/new-loan')}>
         <Plus color="#fff" size={30} />
@@ -729,9 +792,14 @@ const styles = StyleSheet.create({
   friendCodeCaption: {
     fontSize: 12,
     color: '#64748B',
-    marginTop: 8,
     paddingHorizontal: 4,
     textAlign: 'center',
+  },
+  friendCodeRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
   },
   friendCodeValue: {
     color: '#0F172A',
@@ -767,6 +835,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  inviteCard: {
+    padding: 20,
+    marginBottom: 12,
+  },
+  inviteCardTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  inviteCardText: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#64748B',
+    marginTop: 8,
+    marginBottom: 16,
   },
   balanceCardHeader: {
     flexDirection: 'row',
@@ -908,6 +992,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+  },
+  fabHint: {
+    position: 'absolute',
+    right: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  fabHintText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4338CA',
   },
   section: {
     marginBottom: 28,

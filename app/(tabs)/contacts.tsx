@@ -30,7 +30,6 @@ type ContactPayment = {
   payment_method: 'money' | 'item' | null;
   note: string | null;
   returned_item_name: string | null;
-  created_at: string;
 };
 
 type ContactHistoryEvent = {
@@ -118,7 +117,7 @@ export default function ContactsScreen() {
       const loanIds = allLoans.map((loan) => loan.id);
       const { data: pData } = await supabase
         .from('payments')
-        .select('id, amount, loan_id, payment_date, payment_method, note, returned_item_name, created_at')
+        .select('id, amount, loan_id, payment_date, payment_method, note, returned_item_name')
         .in('loan_id', loanIds);
 
       paymentsData = (pData || []) as ContactPayment[];
@@ -590,11 +589,11 @@ function buildContactHistory(loans: ContactLoan[], paymentsByLoan: Map<string, C
     });
 
     const loanPayments = [...(paymentsByLoan.get(loan.id) || [])].sort(
-      (a, b) => getTimestamp(b.payment_date || b.created_at) - getTimestamp(a.payment_date || a.created_at)
+      (a, b) => getTimestamp(b.payment_date) - getTimestamp(a.payment_date)
     );
 
     loanPayments.forEach((payment) => {
-      const occurredAt = payment.payment_date || payment.created_at;
+      const occurredAt = payment.payment_date || loan.created_at;
       const moneyAmount = Number(payment.amount || 0);
       const hasMoneyAmount = payment.payment_method === 'money' && Number.isFinite(moneyAmount);
 

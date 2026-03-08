@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname, useRouter, useSegments } from 'expo-router';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
@@ -32,6 +32,8 @@ export const useAuth = () => {
     const pathname = usePathname();
     const router = useRouter();
     const segments = useSegments();
+    const profileSyncInFlightRef = useRef(false);
+    const profileSyncQueuedRef = useRef(false);
 
     const isRecoverableProtectedPath = (value?: string | null) => {
         if (!value) return false;
@@ -86,6 +88,29 @@ export const useAuth = () => {
         setPlanTier('premium');
     };
 
+    const syncProfileState = async (userId: string) => {
+        if (profileSyncInFlightRef.current) {
+            profileSyncQueuedRef.current = true;
+            return;
+        }
+
+        profileSyncInFlightRef.current = true;
+
+        try {
+            do {
+                profileSyncQueuedRef.current = false;
+
+                const { normalizedRole, planTier, language } = await fetchProfileMeta(userId);
+                setRole(normalizedRole);
+                setPlanTier(planTier);
+                setLanguage(language);
+                await hydratePendingReferralReward();
+            } while (profileSyncQueuedRef.current);
+        } finally {
+            profileSyncInFlightRef.current = false;
+        }
+    };
+
     useEffect(() => {
         // 1. Initial session check
         const checkSession = async () => {
@@ -94,11 +119,7 @@ export const useAuth = () => {
             setUser(session?.user ?? null);
 
             if (session?.user?.id) {
-                const { normalizedRole, planTier, language } = await fetchProfileMeta(session.user.id);
-                setRole(normalizedRole);
-                setPlanTier(planTier);
-                setLanguage(language);
-                await hydratePendingReferralReward();
+                await syncProfileState(session.user.id);
             } else {
                 setRole(null);
                 setPlanTier('free');
@@ -117,11 +138,7 @@ export const useAuth = () => {
                 setUser(session?.user ?? null);
 
                 if (session?.user?.id) {
-                    const { normalizedRole, planTier, language } = await fetchProfileMeta(session.user.id);
-                    setRole(normalizedRole);
-                    setPlanTier(planTier);
-                    setLanguage(language);
-                    await hydratePendingReferralReward();
+                    await syncProfileState(session.user.id);
                 } else {
                     setRole(null);
                     setPlanTier('free');
@@ -140,6 +157,11 @@ export const useAuth = () => {
             subscription.unsubscribe();
         };
     }, []);
+
+    useEffect(() => {
+        if (!initialized || !session?.user?.id) return;
+        void syncProfileState(session.user.id);
+    }, [initialized, pathname, session?.user?.id]);
 
     useEffect(() => {
         if (!session?.user?.id) return;
@@ -171,6 +193,30 @@ export const useAuth = () => {
                         });
                         setPlanTier('premium');
                     }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            void supabase.removeChannel(channel);
+        };
+    }, [session?.user?.id]);
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+
+        const channel = supabase
+            .channel(`profile-premium:${session.user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${session.user.id}`,
+                },
+                () => {
+                    void syncProfileState(session.user.id);
                 }
             )
             .subscribe();
