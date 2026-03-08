@@ -15,6 +15,8 @@ import {
   removeProfileAvatar,
   uploadProfileAvatar,
 } from '@/services/profileAvatar';
+import { applyInvitationCode, formatReferralExpiry, getMyInviteSummary, InviteSummary } from '@/services/referrals';
+import { normalizePlanTier } from '@/services/subscriptionPlan';
 
 const isMissingDefaultLanguageColumn = (message?: string) =>
   String(message || '').toLowerCase().includes('default_language');
@@ -22,7 +24,7 @@ const isMissingFriendCodeColumn = (message?: string) =>
   String(message || '').toLowerCase().includes('friend_code');
 
 export default function ProfileScreen() {
-  const { user, setLanguage } = useAuthStore();
+  const { user, setLanguage, setPlanTier } = useAuthStore();
   const { t } = useI18n();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -35,6 +37,9 @@ export default function ProfileScreen() {
   const [currencyDefault, setCurrencyDefault] = useState('USD');
   const [defaultLanguage, setDefaultLanguage] = useState<AppLanguage>('en');
   const [friendCode, setFriendCode] = useState('');
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [inviteSummary, setInviteSummary] = useState<InviteSummary | null>(null);
+  const [applyingInviteCode, setApplyingInviteCode] = useState(false);
   const [avatarPath, setAvatarPath] = useState<string | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarMarkedForRemoval, setAvatarMarkedForRemoval] = useState(false);
@@ -49,7 +54,7 @@ export default function ProfileScreen() {
     setFullName((current) => current || String(user.user_metadata?.full_name || '').trim());
     setEmail((current) => current || user.email || '');
 
-    const fullFields = 'full_name, email, phone, currency_default, default_language, avatar_url, friend_code';
+    const fullFields = 'full_name, email, phone, currency_default, default_language, avatar_url, friend_code, plan_tier, premium_referral_expires_at';
     let { data, error } = await supabase
       .from('profiles')
       .select(fullFields)
@@ -62,6 +67,8 @@ export default function ProfileScreen() {
         'email',
         'phone',
         'currency_default',
+        'plan_tier',
+        'premium_referral_expires_at',
         ...(isMissingDefaultLanguageColumn(error.message) ? [] : ['default_language']),
         ...(isMissingAvatarUrlColumn(error.message) ? [] : ['avatar_url']),
         ...(isMissingFriendCodeColumn(error.message) ? [] : ['friend_code']),
@@ -125,6 +132,7 @@ export default function ProfileScreen() {
       setDefaultLanguage(normalizeLanguage((data as any).default_language));
       setFriendCode(resolvedFriendCode);
       setFriendCodeStatus(resolvedFriendCode ? 'ready' : 'missing');
+      setPlanTier(normalizePlanTier((data as any)?.plan_tier, (data as any)?.premium_referral_expires_at));
       setAvatarPath(nextAvatarPath);
       setAvatarPreviewUrl(getProfileAvatarPublicUrl(nextAvatarPath));
     } else {
@@ -136,12 +144,18 @@ export default function ProfileScreen() {
       setAvatarPreviewUrl(null);
     }
 
+    const inviteSummaryResult = await getMyInviteSummary();
+    if (inviteSummaryResult.data) {
+      setInviteSummary(inviteSummaryResult.data);
+      setInviteCodeInput((current) => current || inviteSummaryResult.data?.referredByCode || '');
+    }
+
     avatarBase64Ref.current = null;
     avatarMimeTypeRef.current = null;
     setAvatarMarkedForRemoval(false);
     setAvatarDirty(false);
     setInitializing(false);
-  }, [user?.email, user?.id, user?.user_metadata?.full_name]);
+  }, [setPlanTier, user?.email, user?.id, user?.user_metadata?.full_name]);
 
   useFocusEffect(
     useCallback(() => {
@@ -298,14 +312,48 @@ export default function ProfileScreen() {
 
     try {
       await Share.share({
-        message: `Add me on Buddy Balance with friend code ${friendCode}`,
+        message: `Join me on Buddy Balance and use my invite code ${friendCode}. Every 3 successful uses unlocks 1 month of Premium for me.`,
       });
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'Could not open the share sheet.');
     }
   };
 
+  const handleApplyInviteCode = async () => {
+    const normalizedCode = inviteCodeInput.trim().toUpperCase();
+    if (!normalizedCode) {
+      Alert.alert('Invite code needed', 'Enter an invite code to redeem it.');
+      return;
+    }
+
+    if (normalizedCode === friendCode.trim().toUpperCase()) {
+      Alert.alert('Invalid invite code', 'You cannot use your own invite code.');
+      return;
+    }
+
+    setApplyingInviteCode(true);
+    try {
+      const { data, error } = await applyInvitationCode(normalizedCode);
+      if (error) {
+        throw error;
+      }
+
+      await loadProfile();
+      Alert.alert(
+        'Invite code applied',
+        data?.rewardMonths
+          ? 'This redemption completed a reward cycle for your friend. Your account is now linked to their invite.'
+          : 'The invite code was saved successfully.'
+      );
+    } catch (error: any) {
+      Alert.alert('Could not apply invite code', error?.message || 'Try again in a moment.');
+    } finally {
+      setApplyingInviteCode(false);
+    }
+  };
+
   const profileInitial = (fullName || email || user?.email || '?').trim().charAt(0).toUpperCase();
+  const rewardExpiryLabel = formatReferralExpiry(inviteSummary?.premiumReferralExpiresAt);
 
   const handleRefresh = async () => {
     if (!user?.id) return;
@@ -318,10 +366,14 @@ export default function ProfileScreen() {
   };
 
   return (
-    <Screen style={styles.container} safeAreaEdges={['left', 'right', 'bottom']}>
+    <Screen style={styles.container} safeAreaEdges={['top', 'left', 'right', 'bottom']}>
       <Stack.Screen
         options={{
           title: t('Profile'),
+          headerTransparent: false,
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+          },
           headerLeft: () => (
             <TouchableOpacity
               style={styles.headerButton}
@@ -438,12 +490,12 @@ export default function ProfileScreen() {
           />
 
           <RNView style={styles.friendCodeCard}>
-            <Text style={styles.friendCodeLabel}>Friend Code</Text>
+            <Text style={styles.friendCodeLabel}>Invite Code</Text>
             <Text selectable style={styles.friendCodeValue}>
               {friendCode || (friendCodeStatus === 'loading' ? 'Setting up...' : 'Unavailable')}
             </Text>
             <Text style={styles.friendCodeHint}>
-              Share this code so someone can add you as a friend and share records with you.
+              Share this code with friends who are not in the app yet. Every 3 successful uses unlocks 1 month of Premium.
             </Text>
             <RNView style={styles.friendCodeActions}>
               <TouchableOpacity
@@ -467,6 +519,57 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
               ) : null}
             </RNView>
+          </RNView>
+
+          <RNView style={styles.inviteProgressCard}>
+            <Text style={styles.inviteProgressEyebrow}>Referral Progress</Text>
+            <Text style={styles.inviteProgressTitle}>
+              {`${inviteSummary?.referralCount || 0}/3 uses toward your next Premium month`}
+            </Text>
+            <Text style={styles.inviteProgressHint}>
+              {rewardExpiryLabel
+                ? `Referral Premium active until ${rewardExpiryLabel}.`
+                : `${inviteSummary?.referralsUntilNextReward || 3} more successful uses to unlock Premium.`}
+            </Text>
+
+            <RNView style={styles.progressTrack}>
+              <RNView
+                style={[
+                  styles.progressFill,
+                  { width: `${Math.min(((inviteSummary?.referralCount || 0) % 3 || 0) / 3 * 100, 100)}%` },
+                ]}
+              />
+            </RNView>
+
+            <Text style={styles.label}>Redeem Someone Else's Invite Code</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ABC123"
+              placeholderTextColor="#94A3B8"
+              autoCapitalize="characters"
+              value={inviteCodeInput}
+              onChangeText={(value) => setInviteCodeInput(value.toUpperCase())}
+              editable={!inviteSummary?.referredByUserId && !applyingInviteCode}
+            />
+            <Text style={styles.inviteRedeemHint}>
+              {inviteSummary?.referredByUserId
+                ? `You already redeemed invite code ${inviteSummary.referredByCode || inviteCodeInput}.`
+                : 'You can redeem one invite code per account.'}
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.redeemButton,
+                (applyingInviteCode || Boolean(inviteSummary?.referredByUserId)) && styles.redeemButtonDisabled,
+              ]}
+              onPress={() => {
+                void handleApplyInviteCode();
+              }}
+              disabled={applyingInviteCode || Boolean(inviteSummary?.referredByUserId)}
+            >
+              <Text style={styles.redeemButtonText}>
+                {applyingInviteCode ? 'Applying...' : 'Apply Invite Code'}
+              </Text>
+            </TouchableOpacity>
           </RNView>
 
           <Text style={styles.label}>Default Currency</Text>
@@ -521,7 +624,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 40,
   },
   headerButton: {
@@ -726,6 +829,68 @@ const styles = StyleSheet.create({
   },
   friendCodeRetryButtonText: {
     color: '#4F46E5',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  inviteProgressCard: {
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+  },
+  inviteProgressEyebrow: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    color: '#C2410C',
+  },
+  inviteProgressTitle: {
+    marginTop: 8,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  inviteProgressHint: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#7C2D12',
+  },
+  progressTrack: {
+    marginTop: 14,
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: '#FFEDD5',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#F97316',
+  },
+  inviteRedeemHint: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#9A3412',
+  },
+  redeemButton: {
+    marginTop: 14,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 999,
+    backgroundColor: '#0F172A',
+  },
+  redeemButtonDisabled: {
+    opacity: 0.45,
+  },
+  redeemButtonText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '800',
   },

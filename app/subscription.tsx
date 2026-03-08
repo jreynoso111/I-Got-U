@@ -5,12 +5,36 @@ import { Check, Shield, Smartphone } from 'lucide-react-native';
 import { Card, Screen, Text } from '@/components/Themed';
 import { getBillingEntitlementId, getBillingUnavailableReason, isBillingAvailable } from '@/services/billing';
 import { PLAN_LIMITS } from '@/services/subscriptionPlan';
+import { formatReferralExpiry, getMyInviteSummary } from '@/services/referrals';
 import { useAuthStore } from '@/store/authStore';
 
 export default function SubscriptionScreen() {
   const planTier = useAuthStore((state) => state.planTier);
   const planTitle = planTier === 'premium' ? 'Premium active' : 'Free plan';
   const unavailableReason = getBillingUnavailableReason();
+  const [referralSummary, setReferralSummary] = React.useState<{
+    referralCount: number;
+    premiumReferralExpiresAt: string | null;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+
+    const loadReferralSummary = async () => {
+      const { data } = await getMyInviteSummary();
+      if (!active || !data) return;
+      setReferralSummary({
+        referralCount: data.referralCount,
+        premiumReferralExpiresAt: data.premiumReferralExpiresAt,
+      });
+    };
+
+    void loadReferralSummary();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <Screen style={styles.container}>
@@ -33,6 +57,7 @@ export default function SubscriptionScreen() {
             `Unlimited linked friends instead of ${PLAN_LIMITS.free.linkedFriends}`,
             `Unlimited active records instead of ${PLAN_LIMITS.free.activeRecords}`,
             'Priority support for account issues',
+            '1 free month of Premium every 3 successful invite code uses',
             `Premium plan tier: "${getBillingEntitlementId()}"`,
           ].map((benefit) => (
             <RNView key={benefit} style={styles.benefitRow}>
@@ -58,6 +83,13 @@ export default function SubscriptionScreen() {
             Current status: Premium access is controlled by `profiles.plan_tier` and can still be managed manually by an
             administrator.
           </Text>
+          {referralSummary ? (
+            <Text style={styles.androidHint}>
+              {referralSummary.premiumReferralExpiresAt
+                ? `Referral Premium active until ${formatReferralExpiry(referralSummary.premiumReferralExpiresAt)}.`
+                : `${referralSummary.referralCount}/3 invite code uses earned toward your next free Premium month.`}
+            </Text>
+          ) : null}
           {Platform.OS === 'android' ? (
             <Text style={styles.androidHint}>
               Next step for Android: connect the Google Play in-app product and wire the purchase flow into this screen.

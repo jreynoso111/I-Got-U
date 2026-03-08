@@ -85,10 +85,25 @@ async function fetchRevenueCatSubscriber(appUserId: string) {
 }
 
 async function updateProfilePlan(appUserId: string, planTier: 'free' | 'premium') {
+  const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
+    .from('profiles')
+    .select('plan_tier')
+    .eq('id', appUserId)
+    .maybeSingle();
+
+  if (existingProfileError) {
+    throw new Error(existingProfileError.message);
+  }
+
+  const previousPlanTier = String(existingProfile?.plan_tier || 'free').toLowerCase().trim();
   const { error } = await supabaseAdmin
     .from('profiles')
     .update({
       plan_tier: planTier,
+      last_premium_granted_at:
+        planTier === 'premium' && previousPlanTier !== 'premium' ? new Date().toISOString() : undefined,
+      last_premium_granted_source:
+        planTier === 'premium' && previousPlanTier !== 'premium' ? 'purchase' : undefined,
       updated_at: new Date().toISOString(),
     })
     .eq('id', appUserId);

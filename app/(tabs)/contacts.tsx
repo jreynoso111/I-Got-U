@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { StyleSheet, FlatList, TouchableOpacity, View as RNView, TextInput, useWindowDimensions, Modal, ScrollView, RefreshControl } from 'react-native';
 import { Text, View, Screen, Card } from '@/components/Themed';
 import { supabase } from '@/services/supabase';
@@ -56,6 +56,12 @@ type ContactItem = {
   itemsOwed: number;
   activeLoansList: ContactLoan[];
   historyEntries: ContactHistoryEvent[];
+  target_profile?: {
+    full_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    friend_code?: string | null;
+  } | null;
 };
 
 export default function ContactsScreen() {
@@ -76,18 +82,20 @@ export default function ContactsScreen() {
   const fabBottomOffset = bottomInset + 16;
   const listBottomPadding = bottomInset + 88;
 
-  useFocusEffect(
-    React.useCallback(() => {
-      void fetchContacts();
-    }, [user?.id])
-  );
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     if (!user?.id) return;
 
     const { data: contactsData } = await supabase
       .from('contacts')
-      .select('*')
+      .select(`
+        *,
+        target_profile:profiles!contacts_target_user_id_fkey (
+          full_name,
+          email,
+          phone,
+          friend_code
+        )
+      `)
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .order('name', { ascending: true });
@@ -169,7 +177,37 @@ export default function ContactsScreen() {
     });
 
     setContacts(contactsWithSummary);
-  };
+  }, [user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchContacts();
+    }, [fetchContacts])
+  );
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`contacts:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'contacts',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchContacts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [fetchContacts, user?.id]);
 
   const filteredContacts = contacts.filter((contact) =>
     contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -260,11 +298,13 @@ export default function ContactsScreen() {
                         </RNView>
                       ) : item.link_status === 'pending' ? (
                         <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgePending]}>
-                          <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextPending]}>Pending</Text>
+                          <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextPending]}>Invite sent</Text>
                         </RNView>
                       ) : null}
                     </RNView>
-                    <Text style={styles.contactDetail}>{item.phone || item.email || item.social_network || 'Tap to view details and history'}</Text>
+                    <Text style={styles.contactDetail}>
+                      {item.phone || item.email || item.target_profile?.phone || item.target_profile?.email || item.social_network || 'Tap to view details and history'}
+                    </Text>
                   </RNView>
 
                   <RNView style={styles.summaryColumn}>
@@ -293,11 +333,14 @@ export default function ContactsScreen() {
                   </RNView>
 
                   {compactDetails.length > 0 ? (
-                    <RNView style={styles.detailChipsRow}>
-                      {compactDetails.map((detail) => (
-                        <RNView key={`${item.id}-${detail.label}`} style={styles.detailChip}>
-                          <Text style={styles.detailChipLabel}>{detail.label}</Text>
-                          <Text style={styles.detailChipValue} numberOfLines={1}>{detail.value}</Text>
+                    <RNView style={styles.detailList}>
+                      {compactDetails.map((detail, index) => (
+                        <RNView
+                          key={`${item.id}-${detail.label}`}
+                          style={[styles.detailRow, index === compactDetails.length - 1 && styles.detailRowLast]}
+                        >
+                          <Text style={styles.detailRowLabel}>{detail.label}</Text>
+                          <Text style={styles.detailRowValue}>{detail.value}</Text>
                         </RNView>
                       ))}
                     </RNView>
@@ -322,14 +365,14 @@ export default function ContactsScreen() {
                           {item.link_status === 'accepted'
                             ? 'Linked to a Buddy Balance account'
                             : item.link_status === 'pending'
-                              ? 'Friend link pending'
+                              ? 'Friend invitation sent'
                               : 'Link this contact to a friend account'}
                         </Text>
                         <Text style={styles.accountLinkText}>
                           {item.link_status === 'accepted'
                             ? 'Shared records with this person can sync across both accounts.'
                             : item.link_status === 'pending'
-                              ? 'This friend request is waiting for the other person to accept it.'
+                              ? 'Good to go. Your invitation is on its way, and shared records will start syncing as soon as they accept.'
                               : 'If this person uses Buddy Balance, add their friend code to connect both accounts.'}
                         </Text>
                       </RNView>
@@ -583,10 +626,13 @@ function buildContactHistory(loans: ContactLoan[], paymentsByLoan: Map<string, C
 }
 
 function getCompactDetails(contact: ContactItem) {
+  const profile = contact.target_profile;
+
   return [
-    contact.phone ? { label: 'Phone', value: contact.phone } : null,
-    contact.email ? { label: 'Email', value: contact.email } : null,
+    contact.phone || profile?.phone ? { label: 'Phone', value: contact.phone || profile?.phone || '' } : null,
+    contact.email || profile?.email ? { label: 'Email', value: contact.email || profile?.email || '' } : null,
     contact.social_network ? { label: 'Social', value: contact.social_network } : null,
+    profile?.friend_code ? { label: 'Friend code', value: profile.friend_code } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
 }
 
@@ -734,7 +780,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ECFDF5',
   },
   contactLinkBadgePending: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#ECFDF5',
   },
   contactLinkBadgeText: {
     fontSize: 10,
@@ -745,7 +791,7 @@ const styles = StyleSheet.create({
     color: '#047857',
   },
   contactLinkBadgeTextPending: {
-    color: '#B45309',
+    color: '#047857',
   },
   contactDetail: {
     fontSize: 13,
@@ -823,35 +869,36 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#6366F1',
   },
-  detailChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
-    backgroundColor: 'transparent',
-  },
-  detailChip: {
-    minWidth: '30%',
-    maxWidth: '100%',
-    backgroundColor: '#F8FAFC',
+  detailList: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
     borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    marginBottom: 12,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
   },
-  detailChipLabel: {
+  detailRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: 'transparent',
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
+  detailRowLabel: {
     fontSize: 10,
     color: '#94A3B8',
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
+    marginBottom: 4,
   },
-  detailChipValue: {
-    fontSize: 13,
+  detailRowValue: {
+    fontSize: 14,
     color: '#0F172A',
     fontWeight: '600',
-    marginTop: 4,
   },
   noteCard: {
     backgroundColor: '#F8FAFC',

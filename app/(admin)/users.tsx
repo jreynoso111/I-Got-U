@@ -50,6 +50,15 @@ interface AuditLogEntry {
     changed_columns: string[] | null;
 }
 
+interface SupportMessageEntry {
+    id: string;
+    subject: string | null;
+    message: string;
+    channel: string;
+    status: string;
+    created_at: string;
+}
+
 const formatDateTime = (value?: string | null) => {
     if (!value) return 'Unknown date';
 
@@ -100,6 +109,8 @@ export default function AdminUsersList() {
     const [savingUserId, setSavingUserId] = useState<string | null>(null);
     const [selectedUser, setSelectedUser] = useState<AdminUserProfile | null>(null);
     const [manageVisible, setManageVisible] = useState(false);
+    const [supportMessages, setSupportMessages] = useState<SupportMessageEntry[]>([]);
+    const [supportLoading, setSupportLoading] = useState(false);
     const [historyVisible, setHistoryVisible] = useState(false);
     const [historyUser, setHistoryUser] = useState<AdminUserProfile | null>(null);
     const [historyLogs, setHistoryLogs] = useState<AuditLogEntry[]>([]);
@@ -191,11 +202,32 @@ export default function AdminUsersList() {
     const openManageModal = (user: AdminUserProfile) => {
         setSelectedUser(user);
         setManageVisible(true);
+        void loadSupportMessages(user.id);
     };
 
     const closeManageModal = () => {
         setManageVisible(false);
         setSelectedUser(null);
+        setSupportMessages([]);
+    };
+
+    const loadSupportMessages = async (userId: string) => {
+        setSupportLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('support_messages')
+                .select('id, subject, message, channel, status, created_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(5);
+
+            if (error) throw error;
+            setSupportMessages((data || []) as SupportMessageEntry[]);
+        } catch (err: any) {
+            setError(err.message || 'Failed to load support communications.');
+        } finally {
+            setSupportLoading(false);
+        }
     };
 
     const openHistoryModal = async (user: AdminUserProfile) => {
@@ -431,14 +463,27 @@ export default function AdminUsersList() {
                                     <Text style={styles.manageSecondaryButtonText}>Send password reset email</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    style={styles.manageSecondaryButton}
-                                    onPress={() => void openHistoryModal(selectedUser)}
-                                    disabled={savingUserId === selectedUser.id}
-                                >
-                                    <History size={16} color="#1E293B" />
-                                    <Text style={styles.manageSecondaryButtonText}>Open activity history</Text>
-                                </TouchableOpacity>
+                                <View style={styles.supportSection}>
+                                    <Text style={styles.supportSectionTitle}>Support communications</Text>
+                                    {supportLoading ? (
+                                        <Text style={styles.supportLoadingText}>Loading communication log...</Text>
+                                    ) : supportMessages.length === 0 ? (
+                                        <Text style={styles.supportEmptyText}>This user has not contacted support yet.</Text>
+                                    ) : (
+                                        supportMessages.map((entry) => (
+                                            <View key={entry.id} style={styles.supportItem}>
+                                                <View style={styles.supportItemHeader}>
+                                                    <Text style={styles.supportItemTitle}>{entry.subject?.trim() || 'General support message'}</Text>
+                                                    <Text style={styles.supportItemMeta}>{formatDateTime(entry.created_at)}</Text>
+                                                </View>
+                                                <Text style={styles.supportItemBody} numberOfLines={4}>{entry.message}</Text>
+                                                <Text style={styles.supportItemFooter}>
+                                                    {entry.channel.replace('_', ' ')} • {entry.status}
+                                                </Text>
+                                            </View>
+                                        ))
+                                    )}
+                                </View>
 
                                 <TouchableOpacity
                                     style={styles.manageDangerButton}
@@ -822,6 +867,65 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '800',
         color: '#FFFFFF',
+    },
+    supportSection: {
+        marginTop: 8,
+        marginBottom: 8,
+        backgroundColor: 'transparent',
+    },
+    supportSectionTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        color: '#0F172A',
+        marginBottom: 10,
+    },
+    supportLoadingText: {
+        fontSize: 13,
+        color: '#64748B',
+    },
+    supportEmptyText: {
+        fontSize: 13,
+        color: '#94A3B8',
+        lineHeight: 18,
+    },
+    supportItem: {
+        padding: 12,
+        borderRadius: 14,
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 10,
+    },
+    supportItemHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 10,
+        backgroundColor: 'transparent',
+        marginBottom: 6,
+    },
+    supportItemTitle: {
+        flex: 1,
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#0F172A',
+    },
+    supportItemMeta: {
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#94A3B8',
+    },
+    supportItemBody: {
+        fontSize: 13,
+        lineHeight: 18,
+        color: '#475569',
+    },
+    supportItemFooter: {
+        marginTop: 8,
+        fontSize: 11,
+        fontWeight: '700',
+        color: '#64748B',
+        textTransform: 'capitalize',
     },
     historyLoadingBox: {
         flexDirection: 'row',

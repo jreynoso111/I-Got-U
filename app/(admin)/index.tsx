@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { AlertCircle, ArrowDownToLine, BellRing, ChevronRight, Crown, RefreshCcw, TrendingUp, UserMinus, Users, Wallet } from 'lucide-react-native';
+import { AlertCircle, ArrowDownToLine, BellRing, ChevronRight, Crown, RefreshCcw, Search, TrendingUp, UserMinus, Users, Wallet } from 'lucide-react-native';
 import { Card, Screen } from '@/components/Themed';
 import { supabase } from '@/services/supabase';
+import { getPlanLabel, normalizePlanTier, PlanTier } from '@/services/subscriptionPlan';
 
 interface DashboardStats {
   total_users: number;
@@ -24,6 +25,14 @@ interface DashboardStats {
   push_enabled_users: number;
 }
 
+interface AdminPlanUser {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  plan_tier: string | null;
+  updated_at: string | null;
+}
+
 function formatMoney(value?: number | null) {
   return `$${Math.round(Number(value || 0)).toLocaleString()}`;
 }
@@ -36,6 +45,9 @@ function formatPercent(numerator: number, denominator: number) {
 export default function AdminDashboardIndex() {
   const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [planUsers, setPlanUsers] = useState<AdminPlanUser[]>([]);
+  const [planSearch, setPlanSearch] = useState('');
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -48,9 +60,20 @@ export default function AdminDashboardIndex() {
     setLoading(true);
     setError('');
     try {
-      const { data, error } = await supabase.rpc('get_admin_dashboard_stats');
-      if (error) throw error;
-      setStats(data as DashboardStats);
+      const [statsResult, usersResult] = await Promise.all([
+        supabase.rpc('get_admin_dashboard_stats'),
+        supabase
+          .from('profiles')
+          .select('id, full_name, email, plan_tier, updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(40),
+      ]);
+
+      if (statsResult.error) throw statsResult.error;
+      if (usersResult.error) throw usersResult.error;
+
+      setStats(statsResult.data as DashboardStats);
+      setPlanUsers((usersResult.data || []) as AdminPlanUser[]);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch admin stats');
     } finally {
@@ -66,6 +89,57 @@ export default function AdminDashboardIndex() {
       pushShare: formatPercent(stats.push_enabled_users, stats.total_users),
     };
   }, [stats]);
+
+  const filteredPlanUsers = useMemo(() => {
+    const query = planSearch.trim().toLowerCase();
+    if (!query) return planUsers.slice(0, 8);
+
+    return planUsers
+      .filter((user) =>
+        `${user.full_name || ''} ${user.email || ''}`.toLowerCase().includes(query)
+      )
+      .slice(0, 12);
+  }, [planSearch, planUsers]);
+
+  const updatePlanTier = async (userId: string, nextPlan: PlanTier) => {
+    setSavingUserId(userId);
+    setError('');
+    try {
+      const { error } = await supabase.rpc('admin_set_profile_plan_tier', {
+        p_user_id: userId,
+        p_plan_tier: nextPlan,
+      });
+
+      if (error) throw error;
+
+      setPlanUsers((current) =>
+        current.map((item) => (item.id === userId ? { ...item, plan_tier: nextPlan } : item))
+      );
+      setStats((current) => {
+        if (!current) return current;
+        const currentPlan = normalizePlanTier(planUsers.find((item) => item.id === userId)?.plan_tier);
+        if (currentPlan === nextPlan) return current;
+
+        if (nextPlan === 'premium') {
+          return {
+            ...current,
+            premium_users: current.premium_users + 1,
+            free_users: Math.max(current.free_users - 1, 0),
+          };
+        }
+
+        return {
+          ...current,
+          premium_users: Math.max(current.premium_users - 1, 0),
+          free_users: current.free_users + 1,
+        };
+      });
+    } catch (err: any) {
+      setError(err.message || 'Failed to update plan');
+    } finally {
+      setSavingUserId(null);
+    }
+  };
 
   if (loading && !refreshing) {
     return (
@@ -182,6 +256,85 @@ export default function AdminDashboardIndex() {
           </View>
         </Card>
 
+        <Text style={styles.sectionTitle}>Managed Premium</Text>
+        <Card style={styles.managedPlanCard}>
+          <View style={styles.managedPlanHeader}>
+            <View style={styles.managedPlanCopy}>
+              <Text style={styles.managedPlanTitle}>Membership control inside the dashboard</Text>
+              <Text style={styles.managedPlanText}>Search a user and switch their tier without opening a separate screen.</Text>
+            </View>
+            <View style={styles.managedPlanSummary}>
+              <Text style={styles.managedPlanSummaryValue}>{stats?.premium_users || 0}</Text>
+              <Text style={styles.managedPlanSummaryLabel}>premium</Text>
+            </View>
+          </View>
+
+          <View style={styles.planSearchBar}>
+            <Search size={16} color="#94A3B8" />
+            <TextInput
+              value={planSearch}
+              onChangeText={setPlanSearch}
+              placeholder="Search by name or email..."
+              placeholderTextColor="#94A3B8"
+              style={styles.planSearchInput}
+            />
+          </View>
+
+          <View style={styles.planUsersList}>
+            {filteredPlanUsers.map((user) => {
+              const normalizedPlan = normalizePlanTier(user.plan_tier);
+              const isSaving = savingUserId === user.id;
+              const displayName = user.full_name?.trim() || user.email || 'Unknown user';
+
+              return (
+                <View key={user.id} style={styles.planUserRow}>
+                  <View style={styles.planUserLeft}>
+                    <View style={[styles.planUserAvatar, normalizedPlan === 'premium' ? styles.planUserAvatarPremium : null]}>
+                      <Text style={[styles.planUserAvatarText, normalizedPlan === 'premium' ? styles.planUserAvatarTextPremium : null]}>
+                        {displayName[0]?.toUpperCase() || '?'}
+                      </Text>
+                    </View>
+                    <View style={styles.planUserInfo}>
+                      <Text style={styles.planUserName}>{displayName}</Text>
+                      <Text style={styles.planUserEmail}>{user.email || 'No email'}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.planUserRight}>
+                    <Text style={[styles.inlinePlanBadge, normalizedPlan === 'premium' ? styles.inlinePlanBadgePremium : styles.inlinePlanBadgeFree]}>
+                      {getPlanLabel(normalizedPlan)}
+                    </Text>
+                    <View style={styles.inlinePlanActions}>
+                      <TouchableOpacity
+                        style={[styles.inlinePlanButton, normalizedPlan === 'free' ? styles.inlinePlanButtonActive : null]}
+                        disabled={isSaving || normalizedPlan === 'free'}
+                        onPress={() => void updatePlanTier(user.id, 'free')}
+                      >
+                        <Text style={[styles.inlinePlanButtonText, normalizedPlan === 'free' ? styles.inlinePlanButtonTextActive : null]}>Free</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.inlinePlanButton, normalizedPlan === 'premium' ? styles.inlinePlanButtonPremiumActive : null]}
+                        disabled={isSaving || normalizedPlan === 'premium'}
+                        onPress={() => void updatePlanTier(user.id, 'premium')}
+                      >
+                        <Text style={[styles.inlinePlanButtonText, normalizedPlan === 'premium' ? styles.inlinePlanButtonTextPremiumActive : null]}>
+                          {isSaving ? 'Saving...' : 'Premium'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+
+            {filteredPlanUsers.length === 0 ? (
+              <View style={styles.planUsersEmpty}>
+                <Text style={styles.planUsersEmptyText}>No users match that search.</Text>
+              </View>
+            ) : null}
+          </View>
+        </Card>
+
         <Text style={styles.sectionTitle}>Usage</Text>
         <View style={styles.metricsRow}>
           <Card style={styles.metricCard}>
@@ -256,7 +409,7 @@ export default function AdminDashboardIndex() {
               </View>
               <View style={styles.menuTextWrap}>
                 <Text style={styles.menuLabel}>Users</Text>
-                <Text style={styles.menuSub}>Manage tiers, history, password reset, and deletes</Text>
+                <Text style={styles.menuSub}>Advanced user admin: history, password reset, and deletes</Text>
               </View>
             </View>
             <ChevronRight size={18} color="#94A3B8" />
@@ -460,6 +613,185 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#64748B',
+  },
+  managedPlanCard: {
+    padding: 18,
+    gap: 14,
+  },
+  managedPlanHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: 'transparent',
+  },
+  managedPlanCopy: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  managedPlanTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  managedPlanText: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#64748B',
+  },
+  managedPlanSummary: {
+    minWidth: 74,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(16, 185, 129, 0.12)',
+    alignItems: 'center',
+  },
+  managedPlanSummaryValue: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#047857',
+  },
+  managedPlanSummaryLabel: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#047857',
+    textTransform: 'uppercase',
+  },
+  planSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
+  },
+  planSearchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: '#0F172A',
+  },
+  planUsersList: {
+    gap: 10,
+    backgroundColor: 'transparent',
+  },
+  planUserRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  planUserLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  planUserAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  planUserAvatarPremium: {
+    backgroundColor: 'rgba(16, 185, 129, 0.16)',
+  },
+  planUserAvatarText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  planUserAvatarTextPremium: {
+    color: '#047857',
+  },
+  planUserInfo: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  planUserName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  planUserEmail: {
+    marginTop: 2,
+    fontSize: 12,
+    color: '#64748B',
+  },
+  planUserRight: {
+    alignItems: 'flex-end',
+    gap: 8,
+    backgroundColor: 'transparent',
+  },
+  inlinePlanBadge: {
+    fontSize: 11,
+    fontWeight: '800',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  inlinePlanBadgeFree: {
+    backgroundColor: 'rgba(148, 163, 184, 0.14)',
+    color: '#475569',
+  },
+  inlinePlanBadgePremium: {
+    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+    color: '#047857',
+  },
+  inlinePlanActions: {
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: 'transparent',
+  },
+  inlinePlanButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  inlinePlanButtonActive: {
+    backgroundColor: '#E2E8F0',
+    borderColor: '#E2E8F0',
+  },
+  inlinePlanButtonPremiumActive: {
+    backgroundColor: '#0F172A',
+    borderColor: '#0F172A',
+  },
+  inlinePlanButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  inlinePlanButtonTextActive: {
+    color: '#334155',
+  },
+  inlinePlanButtonTextPremiumActive: {
+    color: '#FFFFFF',
+  },
+  planUsersEmpty: {
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  planUsersEmptyText: {
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
   externalCard: {
     padding: 16,

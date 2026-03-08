@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, TouchableOpacity, Alert, View as RNView, ScrollView, Image, RefreshControl } from 'react-native';
 import { Text, View, Screen, Card } from '@/components/Themed';
-import { supabase } from '@/services/supabase';
+import { clearPersistedAuthState, supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { LogOut, User, Bell, Shield, CircleHelp, FileOutput, ChevronRight, Sparkles } from 'lucide-react-native';
 import { exportLoansToCSV } from '@/services/exportService';
@@ -52,14 +52,14 @@ export default function SettingsScreen() {
 
         let { data, error } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url, plan_tier')
+            .select('full_name, avatar_url, plan_tier, premium_referral_expires_at')
             .eq('id', user.id)
             .maybeSingle();
 
         if (error && isMissingAvatarUrlColumn(error.message)) {
             const fallback = await supabase
                 .from('profiles')
-                .select('full_name, plan_tier')
+                .select('full_name, plan_tier, premium_referral_expires_at')
                 .eq('id', user.id)
                 .maybeSingle();
             data = fallback.data as any;
@@ -73,7 +73,7 @@ export default function SettingsScreen() {
 
         setProfileName(data?.full_name || '');
         setAvatarUrl(getProfileAvatarPublicUrl((data as any)?.avatar_url || null));
-        setPlanTier(normalizePlanTier((data as any)?.plan_tier));
+        setPlanTier(normalizePlanTier((data as any)?.plan_tier, (data as any)?.premium_referral_expires_at));
     };
 
     const handleSignOut = async () => {
@@ -83,10 +83,12 @@ export default function SettingsScreen() {
         try {
             await AsyncStorage.removeItem(LAST_PROTECTED_PATH_KEY);
 
-            const { error } = await supabase.auth.signOut({ scope: 'local' });
+            const { error } = await supabase.auth.signOut();
             if (error) {
-                throw error;
+                console.warn('remote sign out failed:', error.message);
             }
+
+            await clearPersistedAuthState();
 
             setSession(null);
             setUser(null);
@@ -95,13 +97,28 @@ export default function SettingsScreen() {
             setLanguage('en');
             router.replace('/');
         } catch (error: any) {
-            Alert.alert('Error', error?.message || 'Could not sign out right now.');
+            try {
+                await clearPersistedAuthState();
+                setSession(null);
+                setUser(null);
+                setRole(null);
+                setPlanTier('free');
+                setLanguage('en');
+                router.replace('/');
+            } catch {
+                Alert.alert('Error', error?.message || 'Could not sign out right now.');
+            }
         } finally {
             setSigningOut(false);
         }
     };
 
     const handleExport = async () => {
+        if (planTier !== 'premium') {
+            Alert.alert('Premium feature', 'Export Data (CSV) is available only for Premium accounts.');
+            return;
+        }
+
         if (user) {
             await exportLoansToCSV(user.id);
         }
@@ -127,9 +144,17 @@ export default function SettingsScreen() {
         { icon: User, label: 'Profile', sub: user?.email, onPress: () => router.push('/profile') },
         { icon: Bell, label: 'Notifications', sub: prefs.push_enabled ? 'Enabled' : 'Disabled', onPress: () => router.push('/notifications') },
         { icon: Shield, label: 'Security', sub: prefs.biometric_enabled ? 'Biometric On' : 'Biometric Off', onPress: () => router.push('/security') },
-        { icon: FileOutput, label: 'Export Data (CSV)', sub: 'Share report', onPress: handleExport },
         { icon: CircleHelp, label: 'Help & Support', sub: 'FAQ & guidance', onPress: () => router.push('/help-support') },
     ];
+
+    if (planTier === 'premium') {
+        menuItems.splice(4, 0, {
+            icon: FileOutput,
+            label: 'Export Data (CSV)',
+            sub: 'Share report',
+            onPress: handleExport,
+        });
+    }
 
     if (hasAdminAccess) {
         menuItems.unshift({

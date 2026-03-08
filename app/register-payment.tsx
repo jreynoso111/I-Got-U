@@ -271,9 +271,22 @@ export default function RegisterPaymentScreen() {
         const moneyAmountValue = Number.isNaN(parsedMoneyAmount) ? null : parsedMoneyAmount;
         setLoading(true);
         try {
+            const { data: senderProfile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            const senderName =
+                String(senderProfile?.full_name || '').trim() ||
+                String(senderProfile?.email || '').trim() ||
+                String(user.email || '').trim() ||
+                'Someone';
+            const senderEmail = String(senderProfile?.email || user.email || '').trim() || null;
+
             const { data: loanData, error: loanError } = await supabase
                 .from('loans')
-                .select('target_user_id')
+                .select('id, target_user_id, type, category, amount, currency')
                 .eq('id', normalizedLoanId)
                 .single();
 
@@ -282,6 +295,130 @@ export default function RegisterPaymentScreen() {
             }
 
             const targetUserId = loanData?.target_user_id;
+            const requiresConfirmation = Boolean(targetUserId && loanData?.type === 'borrowed');
+            const counterpartLoanType = loanData?.type === 'lent' ? 'borrowed' : 'lent';
+            let counterpartLoanId: string | null = null;
+
+            if (targetUserId) {
+                const { data: counterpartLoans } = await supabase
+                    .from('loans')
+                    .select('id, amount, status')
+                    .eq('user_id', targetUserId)
+                    .eq('target_user_id', user.id)
+                    .eq('type', counterpartLoanType)
+                    .eq('category', loanData?.category || 'money')
+                    .eq('currency', loanData?.currency || null)
+                    .is('deleted_at', null);
+
+                const rankedCounterpartLoan = (counterpartLoans || [])
+                    .sort((a: any, b: any) => {
+                        const aAmountScore = Math.abs(Number(a.amount || 0) - Number(loanData?.amount || 0));
+                        const bAmountScore = Math.abs(Number(b.amount || 0) - Number(loanData?.amount || 0));
+                        if (aAmountScore !== bAmountScore) return aAmountScore - bAmountScore;
+
+                        const aStatusScore = a.status === 'active' || a.status === 'partial' ? 0 : 1;
+                        const bStatusScore = b.status === 'active' || b.status === 'partial' ? 0 : 1;
+                        return aStatusScore - bStatusScore;
+                    })[0];
+
+                counterpartLoanId = rankedCounterpartLoan?.id || null;
+            }
+
+            const syncCounterpartPayment = async (payment: {
+                id?: string | null;
+                amount: number | null;
+                payment_method: 'money' | 'item';
+                returned_item_name: string | null;
+                note: string | null;
+                payment_date: string;
+            }) => {
+                if (!targetUserId || !counterpartLoanId) return;
+
+                const { data: existingCounterpartPayment, error: counterpartLookupError } = await supabase
+                    .from('payments')
+                    .select('id')
+                    .eq('loan_id', counterpartLoanId)
+                    .eq('target_user_id', user.id)
+                    .eq('payment_date', payment.payment_date)
+                    .maybeSingle();
+
+                if (counterpartLookupError) {
+                    throw counterpartLookupError;
+                }
+
+                const payload = {
+                    loan_id: counterpartLoanId,
+                    user_id: targetUserId,
+                    target_user_id: user.id,
+                    amount: payment.amount,
+                    payment_method: payment.payment_method,
+                    returned_item_name: payment.returned_item_name,
+                    note: payment.note,
+                    payment_date: payment.payment_date,
+                    validation_status: 'approved',
+                };
+
+                if (existingCounterpartPayment?.id) {
+                    const { error: counterpartUpdateError } = await supabase
+                        .from('payments')
+                        .update(payload)
+                        .eq('id', existingCounterpartPayment.id);
+
+                    if (counterpartUpdateError) {
+                        throw counterpartUpdateError;
+                    }
+                    return;
+                }
+
+                const { error: counterpartInsertError } = await supabase
+                    .from('payments')
+                    .insert([payload]);
+
+                if (counterpartInsertError) {
+                    throw counterpartInsertError;
+                }
+            };
+
+            const createPaymentNotice = async (payment: {
+                id?: string | null;
+                amount: number | null;
+                payment_method: 'money' | 'item';
+                returned_item_name: string | null;
+            }) => {
+                if (!targetUserId) return;
+
+                const amountLabel =
+                    payment.payment_method === 'money'
+                        ? `${getCurrencySymbol(normalizedCurrency || loanData?.currency || 'USD')}${Number(payment.amount || 0).toLocaleString()}`
+                        : (payment.returned_item_name?.trim() || 'an item');
+
+                const message =
+                    payment.payment_method === 'money'
+                        ? `${senderName} recorded a payment of ${amountLabel} on your shared record.`
+                        : `${senderName} recorded the return of ${amountLabel} on your shared record.`;
+
+                const { error: noticeError } = await supabase.from('p2p_requests').insert([
+                    {
+                        type: 'payment_notice',
+                        loan_id: normalizedLoanId,
+                        payment_id: payment.id || null,
+                        from_user_id: user.id,
+                        to_user_id: targetUserId,
+                        message,
+                        request_payload: {
+                            sender_name: senderName,
+                            sender_email: senderEmail,
+                            sender_loan_id: normalizedLoanId,
+                            counterpart_loan_id: counterpartLoanId,
+                        },
+                        status: 'approved',
+                    },
+                ]);
+
+                if (noticeError) {
+                    throw noticeError;
+                }
+            };
 
             if (normalizedPaymentId) {
                 const previousPaymentState = {
@@ -299,7 +436,7 @@ export default function RegisterPaymentScreen() {
                         payment_method: paymentMethod,
                         returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
                         note: note.trim() || null,
-                        validation_status: targetUserId ? 'pending' : 'none',
+                        validation_status: targetUserId ? (requiresConfirmation ? 'pending' : 'approved') : 'none',
                     })
                     .eq('id', normalizedPaymentId);
 
@@ -321,7 +458,7 @@ export default function RegisterPaymentScreen() {
                     }
                 ]);
 
-                if (targetUserId) {
+                if (requiresConfirmation) {
                     const { error: requestError } = await supabase.from('p2p_requests').insert([
                         {
                             type: 'payment_validation',
@@ -330,6 +467,12 @@ export default function RegisterPaymentScreen() {
                             from_user_id: user?.id,
                             to_user_id: targetUserId,
                             message: `A payment on your shared record was updated. Please review.`,
+                            request_payload: {
+                                sender_name: senderName,
+                                sender_email: senderEmail,
+                                sender_loan_id: normalizedLoanId,
+                                counterpart_loan_id: counterpartLoanId,
+                            },
                             status: 'pending',
                         },
                     ]);
@@ -341,8 +484,24 @@ export default function RegisterPaymentScreen() {
                             .eq('id', normalizedPaymentId);
                         throw new Error('The payment update could not be sent for confirmation, so the changes were reverted.');
                     }
+                } else {
+                    await syncCounterpartPayment({
+                        id: normalizedPaymentId,
+                        amount: paymentMethod === 'money' ? moneyAmountValue : null,
+                        payment_method: paymentMethod,
+                        returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
+                        note: note.trim() || null,
+                        payment_date: originalPayment?.payment_date || new Date().toISOString(),
+                    });
+                    await createPaymentNotice({
+                        id: normalizedPaymentId,
+                        amount: paymentMethod === 'money' ? moneyAmountValue : null,
+                        payment_method: paymentMethod,
+                        returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
+                    });
                 }
             } else {
+                const paymentDate = new Date().toISOString();
                 const { data: newPayment, error: paymentError } = await supabase.from('payments').insert([
                     {
                         loan_id: normalizedLoanId,
@@ -352,8 +511,8 @@ export default function RegisterPaymentScreen() {
                         payment_method: paymentMethod,
                         returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
                         note: note.trim() || null,
-                        payment_date: new Date().toISOString(),
-                        validation_status: targetUserId ? 'pending' : 'none',
+                        payment_date: paymentDate,
+                        validation_status: targetUserId ? (requiresConfirmation ? 'pending' : 'approved') : 'none',
                     },
                 ]).select().single();
 
@@ -361,7 +520,7 @@ export default function RegisterPaymentScreen() {
                     throw paymentError;
                 }
 
-                if (targetUserId && newPayment) {
+                if (requiresConfirmation && newPayment) {
                     const { error: requestError } = await supabase.from('p2p_requests').insert([
                         {
                             type: 'payment_validation',
@@ -370,6 +529,12 @@ export default function RegisterPaymentScreen() {
                             from_user_id: user?.id,
                             to_user_id: targetUserId,
                             message: `A new payment was added to your shared record.`,
+                            request_payload: {
+                                sender_name: senderName,
+                                sender_email: senderEmail,
+                                sender_loan_id: normalizedLoanId,
+                                counterpart_loan_id: counterpartLoanId,
+                            },
                             status: 'pending',
                         },
                     ]);
@@ -382,6 +547,21 @@ export default function RegisterPaymentScreen() {
                             .eq('loan_id', normalizedLoanId);
                         throw new Error('The payment could not be sent for confirmation, so it was not saved.');
                     }
+                } else if (newPayment) {
+                    await syncCounterpartPayment({
+                        id: newPayment.id,
+                        amount: paymentMethod === 'money' ? moneyAmountValue : null,
+                        payment_method: paymentMethod,
+                        returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
+                        note: note.trim() || null,
+                        payment_date: paymentDate,
+                    });
+                    await createPaymentNotice({
+                        id: newPayment.id,
+                        amount: paymentMethod === 'money' ? moneyAmountValue : null,
+                        payment_method: paymentMethod,
+                        returned_item_name: paymentMethod === 'item' ? returnedItem.trim() : null,
+                    });
                 }
             }
 

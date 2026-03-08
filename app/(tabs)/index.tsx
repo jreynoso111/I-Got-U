@@ -49,6 +49,7 @@ export default function DashboardScreen() {
   const [requestCount, setRequestCount] = useState(0);
   const [recordCount, setRecordCount] = useState(0);
   const [expandedRecentRecordId, setExpandedRecentRecordId] = useState<string | null>(null);
+  const [recentSectionExpanded, setRecentSectionExpanded] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const fetchInFlightRef = useRef(false);
 
@@ -70,7 +71,31 @@ export default function DashboardScreen() {
     if (!user?.id) return;
 
     const channel = supabase
-      .channel(`dashboard-requests:${user.id}`)
+      .channel(`dashboard:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'loans',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void fetchData();
+        }
+      )
       .on(
         'postgres_changes',
         {
@@ -426,12 +451,30 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent records</Text>
-            <TouchableOpacity onPress={() => router.push('/contacts')}>
-              <Text style={styles.sectionLink}>Contacts</Text>
+            <TouchableOpacity
+              style={styles.sectionToggle}
+              activeOpacity={0.85}
+              onPress={() => setRecentSectionExpanded((current) => !current)}
+            >
+              <Text style={styles.sectionToggleText}>
+                {recentSectionExpanded ? 'Hide' : `${recentLoans.length} records`}
+              </Text>
+              {recentSectionExpanded ? (
+                <ChevronUp size={18} color="#6366F1" />
+              ) : (
+                <ChevronDown size={18} color="#6366F1" />
+              )}
             </TouchableOpacity>
           </View>
 
-          {recentLoans.length === 0 ? (
+          {!recentSectionExpanded ? (
+            <Card style={styles.collapsedSectionCard}>
+              <Text style={styles.collapsedSectionTitle}>Recent activity is minimized.</Text>
+              <Text style={styles.collapsedSectionText}>
+                Expand this section if you want to review your latest shared records.
+              </Text>
+            </Card>
+          ) : recentLoans.length === 0 ? (
             <Card style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>No shared activity yet.</Text>
               <Text style={styles.emptyText}>Start with one record so the overview can remind you what happened and with whom.</Text>
@@ -887,6 +930,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#6366F1',
   },
+  sectionToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+  sectionToggleText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
   insightRow: {
     flexDirection: 'row',
     gap: 12,
@@ -921,6 +978,20 @@ const styles = StyleSheet.create({
   emptyCard: {
     padding: 22,
     alignItems: 'flex-start',
+  },
+  collapsedSectionCard: {
+    padding: 18,
+  },
+  collapsedSectionTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  collapsedSectionText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#64748B',
   },
   emptyTitle: {
     fontSize: 18,

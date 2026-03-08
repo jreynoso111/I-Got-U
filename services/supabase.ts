@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -16,6 +17,13 @@ if (!SUPABASE_ANON_KEY.startsWith('sb_publishable_')) {
     throw new Error('Invalid Supabase key for frontend. Use only EXPO_PUBLIC_SUPABASE_ANON_KEY.');
 }
 
+const isExpoGoIOS = Platform.OS === 'ios' && Constants.appOwnership === 'expo';
+const authStorageKeyPrefix = SUPABASE_URL.replace(/^https?:\/\//, '').split('.')[0];
+const authStorageKeys = [
+    `sb-${authStorageKeyPrefix}-auth-token`,
+    `sb-${authStorageKeyPrefix}-auth-token-code-verifier`,
+];
+
 // Custom storage adapter to handle different platforms and avoid crashes in Node.js
 const customStorage = {
     getItem: async (key: string) => {
@@ -24,6 +32,9 @@ const customStorage = {
                 return localStorage.getItem(key);
             }
             return null;
+        }
+        if (isExpoGoIOS) {
+            return AsyncStorage.getItem(key);
         }
         try {
             return await SecureStore.getItemAsync(key);
@@ -36,6 +47,10 @@ const customStorage = {
             if (typeof window !== 'undefined') {
                 localStorage.setItem(key, value);
             }
+            return;
+        }
+        if (isExpoGoIOS) {
+            await AsyncStorage.setItem(key, value);
             return;
         }
         try {
@@ -51,6 +66,10 @@ const customStorage = {
             }
             return;
         }
+        if (isExpoGoIOS) {
+            await AsyncStorage.removeItem(key);
+            return;
+        }
         try {
             await SecureStore.deleteItemAsync(key);
         } catch {
@@ -58,6 +77,15 @@ const customStorage = {
         }
     },
 };
+
+export async function clearPersistedAuthState() {
+    await Promise.all(
+        authStorageKeys.flatMap((key) => [
+            AsyncStorage.removeItem(key).catch(() => null),
+            SecureStore.deleteItemAsync(key).catch(() => null),
+        ])
+    );
+}
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {

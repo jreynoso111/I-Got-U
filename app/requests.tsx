@@ -32,8 +32,8 @@ function getRequestActionMessage(type: string, action: 'approved' | 'rejected') 
     return 'The update was declined.';
 }
 
-function getDisplayName(profile: any) {
-    return profile?.full_name || profile?.email || 'Someone';
+function getDisplayName(request: any) {
+    return request?.request_payload?.sender_name || request?.from_profile?.full_name || request?.from_profile?.email || 'Someone';
 }
 
 export default function RequestsScreen() {
@@ -88,6 +88,10 @@ export default function RequestsScreen() {
     };
 
     const applyApprovedRequest = async (request: any) => {
+        if (!user?.id) {
+            throw new Error('User not found.');
+        }
+
         if (request.type === 'loan_validation') {
             const { error } = await supabase.from('loans').update({ validation_status: 'approved' }).eq('id', request.loan_id);
             if (error) throw error;
@@ -95,8 +99,104 @@ export default function RequestsScreen() {
         }
 
         if (request.type === 'payment_validation') {
-            const { error } = await supabase.from('payments').update({ validation_status: 'approved' }).eq('id', request.payment_id);
+            const { data: sourcePayment, error: paymentLoadError } = await supabase
+                .from('payments')
+                .select('id, loan_id, amount, payment_method, note, returned_item_name, payment_date, target_user_id')
+                .eq('id', request.payment_id)
+                .maybeSingle();
+
+            if (paymentLoadError) throw paymentLoadError;
+            if (!sourcePayment) throw new Error('Payment not found.');
+
+            const { error } = await supabase
+                .from('payments')
+                .update({ validation_status: 'approved' })
+                .eq('id', request.payment_id);
             if (error) throw error;
+
+            const providedCounterpartLoanId = request?.request_payload?.counterpart_loan_id || null;
+            let counterpartLoanId: string | null = providedCounterpartLoanId;
+
+            if (!counterpartLoanId) {
+                const { data: sourceLoan, error: sourceLoanError } = await supabase
+                    .from('loans')
+                    .select('id, amount, type, category, currency')
+                    .eq('id', request.loan_id)
+                    .maybeSingle();
+
+                if (sourceLoanError) throw sourceLoanError;
+
+                if (sourceLoan) {
+                    const inverseType = sourceLoan.type === 'lent' ? 'borrowed' : 'lent';
+                    const { data: counterpartLoans, error: counterpartLoansError } = await supabase
+                        .from('loans')
+                        .select('id, amount, status')
+                        .eq('user_id', user.id)
+                        .eq('target_user_id', request.from_user_id)
+                        .eq('type', inverseType)
+                        .eq('category', sourceLoan.category)
+                        .eq('currency', sourceLoan.currency)
+                        .is('deleted_at', null);
+
+                    if (counterpartLoansError) throw counterpartLoansError;
+
+                    counterpartLoanId = (counterpartLoans || [])
+                        .sort((a: any, b: any) => {
+                            const aAmountScore = Math.abs(Number(a.amount || 0) - Number(sourceLoan.amount || 0));
+                            const bAmountScore = Math.abs(Number(b.amount || 0) - Number(sourceLoan.amount || 0));
+                            if (aAmountScore !== bAmountScore) return aAmountScore - bAmountScore;
+
+                            const aStatusScore = a.status === 'active' || a.status === 'partial' ? 0 : 1;
+                            const bStatusScore = b.status === 'active' || b.status === 'partial' ? 0 : 1;
+                            return aStatusScore - bStatusScore;
+                        })[0]?.id || null;
+                }
+            }
+
+            if (counterpartLoanId) {
+                const { data: existingCounterpartPayment, error: existingCounterpartPaymentError } = await supabase
+                    .from('payments')
+                    .select('id')
+                    .eq('loan_id', counterpartLoanId)
+                    .eq('target_user_id', request.from_user_id)
+                    .eq('payment_date', sourcePayment.payment_date)
+                    .maybeSingle();
+
+                if (existingCounterpartPaymentError) throw existingCounterpartPaymentError;
+
+                if (existingCounterpartPayment?.id) {
+                    const { error: counterpartUpdateError } = await supabase
+                        .from('payments')
+                        .update({
+                            amount: sourcePayment.amount,
+                            payment_method: sourcePayment.payment_method,
+                            note: sourcePayment.note,
+                            returned_item_name: sourcePayment.returned_item_name,
+                            validation_status: 'approved',
+                        })
+                        .eq('id', existingCounterpartPayment.id);
+
+                    if (counterpartUpdateError) throw counterpartUpdateError;
+                } else {
+                    const { error: counterpartInsertError } = await supabase
+                        .from('payments')
+                        .insert([
+                            {
+                                loan_id: counterpartLoanId,
+                                user_id: user.id,
+                                target_user_id: request.from_user_id,
+                                amount: sourcePayment.amount,
+                                payment_method: sourcePayment.payment_method,
+                                note: sourcePayment.note,
+                                returned_item_name: sourcePayment.returned_item_name,
+                                payment_date: sourcePayment.payment_date,
+                                validation_status: 'approved',
+                            },
+                        ]);
+
+                    if (counterpartInsertError) throw counterpartInsertError;
+                }
+            }
             return;
         }
 
@@ -213,7 +313,7 @@ export default function RequestsScreen() {
                 </RNView>
                 <RNView style={styles.headerInfo}>
                     <Text style={styles.requestType}>{getRequestTypeLabel(item.type)}</Text>
-                    <Text style={styles.requestFrom}>from {getDisplayName(item.from_profile)}</Text>
+                    <Text style={styles.requestFrom}>from {getDisplayName(item)}</Text>
                 </RNView>
             </RNView>
 

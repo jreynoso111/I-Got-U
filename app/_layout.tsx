@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { ReferralRewardModal } from '@/components/ReferralRewardModal';
 import { useAuth } from '@/hooks/useAuth';
 import { useColorScheme } from '@/components/useColorScheme';
 
@@ -104,6 +105,7 @@ function RootLayoutNav() {
           <Stack.Screen name="faq" options={{ title: 'FAQ' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
         </Stack>
+        <ReferralRewardModal />
       </ThemeProvider>
     </SafeAreaProvider>
   );

@@ -5,6 +5,8 @@ import { useAuthStore } from '@/store/authStore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { normalizeLanguage } from '@/constants/i18n';
 import { normalizePlanTier } from '@/services/subscriptionPlan';
+import { showSharedUpdateNotification } from '@/services/notificationService';
+import { getMyInviteSummary, getMyPendingPremiumCelebration } from '@/services/referrals';
 
 const LAST_PROTECTED_PATH_KEY = 'last_protected_path';
 const NON_RECOVERABLE_PATH_PREFIXES = [
@@ -39,14 +41,14 @@ export const useAuth = () => {
     const fetchProfileMeta = async (userId: string) => {
         let { data, error } = await supabase
             .from('profiles')
-            .select('role, default_language, plan_tier')
+            .select('role, default_language, plan_tier, premium_referral_expires_at')
             .eq('id', userId)
             .single();
 
         if (error && isMissingDefaultLanguageColumn(error.message)) {
             const fallback = await supabase
                 .from('profiles')
-                .select('role, plan_tier')
+                .select('role, plan_tier, premium_referral_expires_at')
                 .eq('id', userId)
                 .single();
             data = fallback.data as any;
@@ -54,10 +56,34 @@ export const useAuth = () => {
         }
 
         const normalizedRole = normalizeRole((data as any)?.role);
-        const planTier = normalizePlanTier((data as any)?.plan_tier);
+        const planTier = normalizePlanTier((data as any)?.plan_tier, (data as any)?.premium_referral_expires_at);
         const language = normalizeLanguage((data as any)?.default_language);
 
         return { normalizedRole, planTier, language };
+    };
+
+    const hydratePendingReferralReward = async () => {
+        const pendingPremiumCelebration = await getMyPendingPremiumCelebration();
+        if (pendingPremiumCelebration.data?.hasPending) {
+            useAuthStore.getState().showReferralReward({
+                source: pendingPremiumCelebration.data.source,
+                rewardMonths: pendingPremiumCelebration.data.rewardMonths || 1,
+                referralCount: pendingPremiumCelebration.data.referralCount,
+                premiumExpiresAt: pendingPremiumCelebration.data.premiumReferralExpiresAt,
+            });
+            setPlanTier('premium');
+            return;
+        }
+
+        const { data } = await getMyInviteSummary();
+        if (!data?.hasUnseenReward) return;
+        useAuthStore.getState().showReferralReward({
+            source: 'referral',
+            rewardMonths: 1,
+            referralCount: data.referralCount,
+            premiumExpiresAt: data.premiumReferralExpiresAt,
+        });
+        setPlanTier('premium');
     };
 
     useEffect(() => {
@@ -72,6 +98,7 @@ export const useAuth = () => {
                 setRole(normalizedRole);
                 setPlanTier(planTier);
                 setLanguage(language);
+                await hydratePendingReferralReward();
             } else {
                 setRole(null);
                 setPlanTier('free');
@@ -94,6 +121,7 @@ export const useAuth = () => {
                     setRole(normalizedRole);
                     setPlanTier(planTier);
                     setLanguage(language);
+                    await hydratePendingReferralReward();
                 } else {
                     setRole(null);
                     setPlanTier('free');
@@ -112,6 +140,45 @@ export const useAuth = () => {
             subscription.unsubscribe();
         };
     }, []);
+
+    useEffect(() => {
+        if (!session?.user?.id) return;
+
+        const channel = supabase
+            .channel(`shared-updates:${session.user.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'p2p_requests',
+                    filter: `to_user_id=eq.${session.user.id}`,
+                },
+                (payload) => {
+                    const next = payload.new as any;
+                    void showSharedUpdateNotification({
+                        type: String(next?.type || 'shared_update'),
+                        fromName: next?.request_payload?.sender_name || null,
+                        message: next?.message || null,
+                    });
+
+                    if (String(next?.type || '') === 'referral_reward') {
+                        useAuthStore.getState().showReferralReward({
+                            source: 'referral',
+                            rewardMonths: Number(next?.request_payload?.reward_months || 1),
+                            referralCount: Number(next?.request_payload?.referral_count || 0),
+                            premiumExpiresAt: next?.request_payload?.premium_expires_at || null,
+                        });
+                        setPlanTier('premium');
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => {
+            void supabase.removeChannel(channel);
+        };
+    }, [session?.user?.id]);
 
     useEffect(() => {
         if (!initialized) return;

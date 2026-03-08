@@ -275,7 +275,7 @@ export default function NewLoanScreen() {
         description: description.trim() || null,
         due_date: effectiveDueDate,
         status: 'active',
-        validation_status: targetUserId ? 'pending' : 'none',
+        validation_status: targetUserId ? 'approved' : 'none',
         evidence_url: evidenceUrl,
         reminder_frequency: reminderFrequency,
         reminder_interval: parsedReminderInterval,
@@ -283,87 +283,71 @@ export default function NewLoanScreen() {
 
       let newLoan: any = null;
       let insertError: any = null;
-      const maxAttempts = 4;
 
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const { data, error } = await supabase
-          .from('loans')
-          .insert([payload])
-          .select()
-          .single();
-
-        if (!error) {
-          newLoan = data;
-          insertError = null;
-          break;
-        }
+      if (targetUserId) {
+        const { data, error } = await supabase.rpc('create_linked_loan', {
+          p_contact_id: contactId,
+          p_amount: category === 'money' ? parsedAmount : null,
+          p_currency: category === 'money' ? currency : null,
+          p_category: category,
+          p_item_name: category === 'item' ? normalizedItemName : null,
+          p_type: type,
+          p_description: description.trim() || null,
+          p_due_date: effectiveDueDate,
+          p_evidence_url: evidenceUrl,
+          p_reminder_frequency: reminderFrequency,
+          p_reminder_interval: parsedReminderInterval,
+        });
 
         insertError = error;
-        const message = (error.message || '').toLowerCase();
+        if (data?.loan_id) {
+          newLoan = { id: data.loan_id };
+        }
+      } else {
+        const maxAttempts = 4;
 
-        if (category === 'item' && message.includes('null value in column') && message.includes('amount')) {
-          payload.amount = 0;
-          continue;
-        }
-        if (category === 'item' && message.includes('null value in column') && message.includes('currency')) {
-          payload.currency = currency || 'USD';
-          continue;
-        }
-        if (message.includes('invalid input value for enum') && message.includes('none')) {
-          payload.reminder_frequency = null;
-          continue;
-        }
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          const { data, error } = await supabase
+            .from('loans')
+            .insert([payload])
+            .select()
+            .single();
 
-        const missingColumnMatch = /column ["']?([a-z0-9_]+)["']? does not exist/i.exec(error.message || '');
-        if (missingColumnMatch?.[1]) {
-          delete payload[missingColumnMatch[1]];
-          continue;
-        }
+          if (!error) {
+            newLoan = data;
+            insertError = null;
+            break;
+          }
 
-        break;
+          insertError = error;
+          const message = (error.message || '').toLowerCase();
+
+          if (category === 'item' && message.includes('null value in column') && message.includes('amount')) {
+            payload.amount = 0;
+            continue;
+          }
+          if (category === 'item' && message.includes('null value in column') && message.includes('currency')) {
+            payload.currency = currency || 'USD';
+            continue;
+          }
+          if (message.includes('invalid input value for enum') && message.includes('none')) {
+            payload.reminder_frequency = null;
+            continue;
+          }
+
+          const missingColumnMatch = /column ["']?([a-z0-9_]+)["']? does not exist/i.exec(error.message || '');
+          if (missingColumnMatch?.[1]) {
+            delete payload[missingColumnMatch[1]];
+            continue;
+          }
+
+          break;
+        }
       }
 
       if (insertError) throw insertError;
       if (!newLoan?.id) {
         throw new Error('Transaction could not be created. Please try again.');
-      }
-
-      if (targetUserId && newLoan) {
-        const { error: requestError } = await supabase.from('p2p_requests').insert([
-          {
-            type: 'loan_validation',
-            loan_id: newLoan.id,
-            from_user_id: user.id,
-            to_user_id: targetUserId,
-            message: `A shared record was added with you. Please confirm the details.`,
-            status: 'pending',
-          },
-        ]);
-
-        if (requestError) {
-          const { error: deleteLoanError } = await supabase
-            .from('loans')
-            .delete()
-            .eq('id', newLoan.id)
-            .eq('user_id', user.id);
-
-          if (evidenceUrl) {
-            await supabase.storage.from('receipts').remove([evidenceUrl]);
-          }
-
-          if (deleteLoanError) {
-            await supabase
-              .from('loans')
-              .update({
-                target_user_id: null,
-                validation_status: 'none',
-              })
-              .eq('id', newLoan.id)
-              .eq('user_id', user.id);
-          }
-
-          throw new Error('The shared record could not be sent for confirmation, so it was not saved.');
-        }
       }
 
       if (reminderFrequency !== 'none' && newLoan) {
@@ -543,13 +527,13 @@ export default function NewLoanScreen() {
               {selectedContact ? (
                 <Card style={[styles.contactStatusCard, selectedContactIsLinked ? styles.contactStatusCardLinked : styles.contactStatusCardPrivate]}>
                   <Text style={styles.contactStatusTitle}>
-                    {selectedContactIsLinked ? 'Shared friend linked' : selectedContactIsPending ? 'Friend request pending' : 'Private contact'}
+                    {selectedContactIsLinked ? 'Shared friend linked' : selectedContactIsPending ? 'Friend invitation sent' : 'Private contact'}
                   </Text>
                   <Text style={styles.contactStatusText}>
                     {selectedContactIsLinked
                       ? 'This person is linked inside the app, so they can confirm and follow shared records.'
                       : selectedContactIsPending
-                      ? 'This contact is waiting for the other person to accept your friend request. Shared confirmations will start after they accept.'
+                      ? 'Your invitation has been sent. Shared confirmations will start as soon as they accept.'
                       : 'This record stays private until you link this contact with a friend code.'}
                   </Text>
                   {!selectedContactIsLinked && !selectedContactIsPending ? (
@@ -761,7 +745,7 @@ export default function NewLoanScreen() {
                             {contact.link_status === 'accepted'
                               ? 'Linked friend'
                               : contact.link_status === 'pending'
-                              ? 'Pending acceptance'
+                              ? 'Invitation sent'
                               : 'Private contact'}
                           </Text>
                         </RNView>

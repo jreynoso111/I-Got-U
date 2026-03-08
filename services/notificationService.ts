@@ -1,5 +1,4 @@
 import * as Device from 'expo-device';
-import * as Notifications from 'expo-notifications';
 import { Platform, Alert } from 'react-native';
 import Constants from 'expo-constants';
 import { getOrCreateUserPreferences } from '@/services/userPreferences';
@@ -27,6 +26,8 @@ async function getNotificationsModule() {
     if (isWeb || isAndroidExpoGo) {
         return null;
     }
+
+    const Notifications = await import('expo-notifications');
 
     if (
         typeof Notifications.getPermissionsAsync !== 'function' ||
@@ -61,9 +62,15 @@ export async function showSharedUpdateNotification(options: {
     } else if (options.type === 'payment_validation') {
         title = 'Payment update';
         body = options.message?.trim() || `${sender} logged a payment that needs your confirmation.`;
+    } else if (options.type === 'payment_notice') {
+        title = 'Payment recorded';
+        body = options.message?.trim() || `${sender} recorded a payment on your shared record.`;
     } else if (options.type === 'debt_reduction') {
         title = 'Adjustment request';
         body = options.message?.trim() || `${sender} suggested a new total for a shared record.`;
+    } else if (options.type === 'referral_reward') {
+        title = 'Premium unlocked';
+        body = options.message?.trim() || 'Your invite code reached the reward goal and Premium is now active.';
     }
 
     await Notifications.scheduleNotificationAsync({

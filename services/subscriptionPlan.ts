@@ -13,8 +13,19 @@ export const PLAN_LIMITS = {
   },
 } as const;
 
-export function normalizePlanTier(value?: string | null): PlanTier {
-  return String(value || '').toLowerCase().trim() === 'premium' ? 'premium' : 'free';
+export function hasReferralPremiumAccess(premiumReferralExpiresAt?: string | null) {
+  if (!premiumReferralExpiresAt) return false;
+  const expiresAt = new Date(premiumReferralExpiresAt);
+  if (Number.isNaN(expiresAt.getTime())) return false;
+  return expiresAt.getTime() > Date.now();
+}
+
+export function normalizePlanTier(value?: string | null, premiumReferralExpiresAt?: string | null): PlanTier {
+  if (String(value || '').toLowerCase().trim() === 'premium') {
+    return 'premium';
+  }
+
+  return hasReferralPremiumAccess(premiumReferralExpiresAt) ? 'premium' : 'free';
 }
 
 export function getPlanLabel(plan: PlanTier) {
@@ -27,7 +38,7 @@ export async function fetchPlanTier(userId: string): Promise<{
 }> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('plan_tier')
+    .select('plan_tier, premium_referral_expires_at')
     .eq('id', userId)
     .maybeSingle();
 
@@ -35,7 +46,10 @@ export async function fetchPlanTier(userId: string): Promise<{
     return { plan: 'free', error: new Error(error.message) };
   }
 
-  return { plan: normalizePlanTier((data as any)?.plan_tier), error: null };
+  return {
+    plan: normalizePlanTier((data as any)?.plan_tier, (data as any)?.premium_referral_expires_at),
+    error: null,
+  };
 }
 
 export async function countLinkedFriends(userId: string): Promise<{

@@ -108,7 +108,15 @@ export default function NewContactScreen() {
         setLoading(true);
         const { data, error } = await supabase
             .from('contacts')
-            .select('*')
+            .select(`
+                *,
+                target_profile:profiles!contacts_target_user_id_fkey (
+                    full_name,
+                    email,
+                    phone,
+                    friend_code
+                )
+            `)
             .eq('id', contactId)
             .eq('user_id', user.id)
             .single();
@@ -118,9 +126,14 @@ export default function NewContactScreen() {
         }
 
         if (data) {
-            setName(data.name);
-            setEmail(data.email || '');
-            setPhone(data.phone || '');
+            const targetProfile = Array.isArray((data as any).target_profile)
+                ? (data as any).target_profile[0]
+                : (data as any).target_profile;
+
+            setName(data.name || targetProfile?.full_name || '');
+            setFriendCode(targetProfile?.friend_code || '');
+            setEmail(data.email || targetProfile?.email || '');
+            setPhone(data.phone || targetProfile?.phone || '');
             setNotes(data.notes || '');
             setSocialNetwork(data.social_network || '');
             setExistingTargetUserId(data.target_user_id || null);
@@ -370,9 +383,9 @@ export default function NewContactScreen() {
                     return;
                 }
                 Alert.alert(
-                    relationLookupWarning ? 'Saved with warning' : 'Success',
+                    relationLookupWarning ? 'Saved with warning' : (targetUserId && nextLinkStatus === 'pending' ? 'Invitation sent' : 'Success'),
                     relationLookupWarning || (targetUserId && nextLinkStatus === 'pending'
-                        ? 'Friend request sent. They will need to accept before shared records sync between both accounts.'
+                        ? 'Friend request sent successfully. Once they accept, both accounts will stay connected and shared records will sync automatically.'
                         : 'Contact updated successfully'),
                     [{ text: 'OK', onPress: navigateAfterSave }]
                 );
@@ -413,9 +426,9 @@ export default function NewContactScreen() {
                     return;
                 }
                 Alert.alert(
-                    relationLookupWarning ? 'Saved with warning' : 'Success',
+                    relationLookupWarning ? 'Saved with warning' : (targetUserId && nextLinkStatus === 'pending' ? 'Invitation sent' : 'Success'),
                     relationLookupWarning || (targetUserId && nextLinkStatus === 'pending'
-                        ? 'Friend request sent. They will need to accept before shared records sync between both accounts.'
+                        ? 'Friend request sent successfully. Once they accept, both accounts will stay connected and shared records will sync automatically.'
                         : 'Contact created successfully'),
                     [{ text: 'OK', onPress: navigateAfterSave }]
                 );
