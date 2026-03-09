@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Alert, View as RNView, ScrollView, Image, RefreshControl, Platform } from 'react-native';
+import { StyleSheet, TouchableOpacity, Alert, View as RNView, ScrollView, Image, RefreshControl, Platform, Pressable } from 'react-native';
 import { Link, Redirect } from 'expo-router';
 import { Text, View, Screen, Card } from '@/components/Themed';
 import { clearPersistedAuthState, supabase } from '@/services/supabase';
@@ -205,12 +205,12 @@ export default function SettingsScreen() {
                     <Card style={styles.webActionCard}>
                         <Text style={styles.webCardTitle}>Account management</Text>
                         <RNView style={styles.webLinkStack}>
-                            <Link href="/dashboard" style={styles.webLinkButton}><Text style={styles.webLinkText}>Dashboard overview</Text></Link>
-                            <Link href="/profile" style={styles.webLinkButton}><Text style={styles.webLinkText}>Edit profile</Text></Link>
-                            <Link href="/subscription" style={styles.webLinkButton}><Text style={styles.webLinkText}>View membership</Text></Link>
-                            <Link href="/notifications" style={styles.webLinkButton}><Text style={styles.webLinkText}>Notification settings</Text></Link>
-                            <Link href="/security" style={styles.webLinkButton}><Text style={styles.webLinkText}>Security settings</Text></Link>
-                            <Link href="/help-support" style={styles.webLinkButton}><Text style={styles.webLinkText}>Support and policies</Text></Link>
+                            <Link href="/dashboard" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Dashboard overview</Text></Pressable></Link>
+                            <Link href="/profile" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Edit profile</Text></Pressable></Link>
+                            <Link href="/subscription" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>View membership</Text></Pressable></Link>
+                            <Link href="/notifications" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Notification settings</Text></Pressable></Link>
+                            <Link href="/security" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Security settings</Text></Pressable></Link>
+                            <Link href="/help-support" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Support and policies</Text></Pressable></Link>
                         </RNView>
                     </Card>
                 </View>
@@ -231,8 +231,10 @@ export default function SettingsScreen() {
                                 <Text style={styles.webPrimaryButtonText}>Export CSV</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Link href="/subscription" style={styles.webPrimaryButton}>
-                                <Text style={styles.webPrimaryButtonText}>See Premium options</Text>
+                            <Link href="/subscription" asChild>
+                                <Pressable style={styles.webPrimaryButton}>
+                                    <Text style={styles.webPrimaryButtonText}>See Premium options</Text>
+                                </Pressable>
                             </Link>
                         )}
                         <TouchableOpacity style={styles.webSecondaryButton} onPress={handleSignOut} disabled={signingOut}>

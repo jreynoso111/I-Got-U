@@ -88,30 +88,30 @@ export function PublicSiteLayout({
           colors={['rgba(255,255,255,0.88)', 'rgba(255,255,255,0.62)']}
           style={[styles.headerChrome, mobile && styles.headerChromeMobile]}
         >
-          <Link href="/" style={styles.brandLink}>
-            <View style={styles.brandWrap}>
-              <BrandLogo size={mobile ? 'sm' : 'md'} showWordmark={false} />
-              <View style={styles.brandMeta}>
-                <Text style={[styles.brandTitle, mobile && styles.brandTitleMobile]}>Buddy Balance</Text>
-                {!tablet ? (
-                  <Text style={styles.brandSubcopy}>Shared tracking for people who actually know each other.</Text>
-                ) : null}
+          <Link href="/" asChild>
+            <Pressable style={styles.brandLink}>
+              <View style={styles.brandWrap}>
+                <BrandLogo size={mobile ? 'sm' : 'md'} showWordmark={false} />
+                <View style={styles.brandMeta}>
+                  <Text style={[styles.brandTitle, mobile && styles.brandTitleMobile]}>Buddy Balance</Text>
+                  {!tablet ? (
+                    <Text style={styles.brandSubcopy}>Shared tracking for people who actually know each other.</Text>
+                  ) : null}
+                </View>
               </View>
-            </View>
+            </Pressable>
           </Link>
 
           <View style={[styles.nav, compact && styles.navCompact, mobile && styles.navMobile]}>
             {NAV_ITEMS.map((item) => {
               const active = isActivePath(pathname, item.matches);
               return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  style={[styles.navLink, mobile && styles.navLinkMobile, active ? styles.navLinkActive : null]}
-                >
-                  <Text style={[styles.navLabel, mobile && styles.navLabelMobile, active ? styles.navLabelActive : null]}>
-                    {item.label}
-                  </Text>
+                <Link key={item.label} href={item.href} asChild>
+                  <Pressable style={[styles.navLink, mobile && styles.navLinkMobile, active ? styles.navLinkActive : null]}>
+                    <Text style={[styles.navLabel, mobile && styles.navLabelMobile, active ? styles.navLabelActive : null]}>
+                      {item.label}
+                    </Text>
+                  </Pressable>
                 </Link>
               );
             })}
@@ -156,23 +156,23 @@ export function PublicSiteLayout({
             {actions?.length ? (
               <View style={[styles.actions, mobile && styles.actionsMobile]}>
                 {actions.map((action) => (
-                  <Link
-                    key={`${action.href}:${action.label}`}
-                    href={action.href}
-                    style={[
-                      styles.actionButton,
-                      mobile && styles.actionButtonMobile,
-                      action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
-                    ]}
-                  >
-                    <Text
+                  <Link key={`${action.href}:${action.label}`} href={action.href} asChild>
+                    <Pressable
                       style={[
-                        styles.actionLabel,
-                        action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
+                        styles.actionButton,
+                        mobile && styles.actionButtonMobile,
+                        action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
                       ]}
                     >
-                      {action.label}
-                    </Text>
+                      <Text
+                        style={[
+                          styles.actionLabel,
+                          action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
+                        ]}
+                      >
+                        {action.label}
+                      </Text>
+                    </Pressable>
                   </Link>
                 ))}
               </View>

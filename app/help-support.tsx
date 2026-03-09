@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
 import { Link, Stack, useRouter, type Href } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -111,17 +111,23 @@ export default function HelpSupportScreen() {
             description="Treat this page as the main support hub. The other pages are supporting references, not separate microsites."
           >
             <RNView style={styles.webLinkStack}>
-              <Link href="/faq" style={styles.webGuideLink}>
-                <Text style={styles.webGuideLinkLabel}>FAQ</Text>
-                <Text style={styles.webGuideLinkBody}>Current answers for records, contacts, notifications, Premium, and account recovery.</Text>
+              <Link href="/faq" asChild>
+                <Pressable style={styles.webGuideLink}>
+                  <Text style={styles.webGuideLinkLabel}>FAQ</Text>
+                  <Text style={styles.webGuideLinkBody}>Current answers for records, contacts, notifications, Premium, and account recovery.</Text>
+                </Pressable>
               </Link>
-              <Link href="/privacy" style={styles.webGuideLink}>
-                <Text style={styles.webGuideLinkLabel}>Privacy Policy</Text>
-                <Text style={styles.webGuideLinkBody}>How account data, record history, support messages, and usage signals are handled.</Text>
+              <Link href="/privacy" asChild>
+                <Pressable style={styles.webGuideLink}>
+                  <Text style={styles.webGuideLinkLabel}>Privacy Policy</Text>
+                  <Text style={styles.webGuideLinkBody}>How account data, record history, support messages, and usage signals are handled.</Text>
+                </Pressable>
               </Link>
-              <Link href="/terms" style={styles.webGuideLink}>
-                <Text style={styles.webGuideLinkLabel}>Terms of Service</Text>
-                <Text style={styles.webGuideLinkBody}>Usage rules, account expectations, and the current product scope.</Text>
+              <Link href="/terms" asChild>
+                <Pressable style={styles.webGuideLink}>
+                  <Text style={styles.webGuideLinkLabel}>Terms of Service</Text>
+                  <Text style={styles.webGuideLinkBody}>Usage rules, account expectations, and the current product scope.</Text>
+                </Pressable>
               </Link>
             </RNView>
           </PublicCard>
@@ -144,12 +150,14 @@ export default function HelpSupportScreen() {
 
         <RNView style={styles.supportDestinationGrid}>
           {SUPPORT_DESTINATIONS.map((item) => (
-            <Link key={item.title} href={item.href} style={styles.supportDestinationLink}>
-              <LinearGradient colors={['rgba(255,255,255,0.96)', 'rgba(255,255,255,0.74)']} style={styles.supportDestinationCard}>
-                <Text style={styles.supportDestinationEyebrow}>{item.eyebrow}</Text>
-                <Text style={styles.supportDestinationTitle}>{item.title}</Text>
-                <Text style={styles.supportDestinationBody}>{item.body}</Text>
-              </LinearGradient>
+            <Link key={item.title} href={item.href} asChild>
+              <Pressable style={styles.supportDestinationLink}>
+                <LinearGradient colors={['rgba(255,255,255,0.96)', 'rgba(255,255,255,0.74)']} style={styles.supportDestinationCard}>
+                  <Text style={styles.supportDestinationEyebrow}>{item.eyebrow}</Text>
+                  <Text style={styles.supportDestinationTitle}>{item.title}</Text>
+                  <Text style={styles.supportDestinationBody}>{item.body}</Text>
+                </LinearGradient>
+              </Pressable>
             </Link>
           ))}
         </RNView>

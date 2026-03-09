@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { Text } from '@/components/Themed';
@@ -70,8 +70,10 @@ export function WebAccountLayout({
             <Text style={styles.productSubcopy}>Signed in with the same Supabase account used in the app.</Text>
           </View>
           <View style={styles.topbarActions}>
-            <Link href="/" style={styles.siteButton}>
-              <Text style={styles.siteButtonText}>Public site</Text>
+            <Link href="/" asChild>
+              <Pressable style={styles.siteButton}>
+                <Text style={styles.siteButtonText}>Public site</Text>
+              </Pressable>
             </Link>
             <TouchableOpacity style={styles.signOutButton} onPress={() => void signOut()}>
               <Text style={styles.signOutButtonText}>Sign out</Text>
@@ -96,8 +98,10 @@ export function WebAccountLayout({
               {ACCOUNT_NAV.map((item) => {
                 const active = matchesPath(pathname, item.matches);
                 return (
-                  <Link key={item.label} href={item.href} style={[styles.navLink, active && styles.navLinkActive]}>
-                    <Text style={[styles.navText, active && styles.navTextActive]}>{item.label}</Text>
+                  <Link key={item.label} href={item.href} asChild>
+                    <Pressable style={[styles.navLink, active && styles.navLinkActive]}>
+                      <Text style={[styles.navText, active && styles.navTextActive]}>{item.label}</Text>
+                    </Pressable>
                   </Link>
                 );
               })}
