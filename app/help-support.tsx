@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
+import { Alert, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
 import {
@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import { supabase } from '@/services/supabase';
 import { AppLegalFooter } from '@/components/AppLegalFooter';
+import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
 
 type QuickGuideItem = {
   icon: React.ComponentType<{ size?: number; color?: string }>;
@@ -94,6 +95,65 @@ export default function HelpSupportScreen() {
     setMessage('');
     Alert.alert('Message sent', 'Your support message was saved for admin review.');
   };
+
+  if (Platform.OS === 'web') {
+    return (
+      <PublicSiteLayout
+        eyebrow="Support"
+        title="Help for Buddy Balance users and launch visitors."
+        description="Use this page to understand the product, review the current policies, and learn how account-specific support works while the public domain and mail channels are being finalized."
+        actions={[
+          { href: '/faq', label: 'Browse FAQ' },
+          { href: '/terms', label: 'Read Terms', variant: 'secondary' },
+        ]}
+      >
+        <PublicCard
+          title="Account-specific support"
+          description={
+            user?.id
+              ? 'You are signed in, so you can send an in-app message below and it will be stored for administrator follow-up.'
+              : 'For account-specific issues, the current support workflow lives inside the authenticated app experience. Sign in to submit a tracked support message tied to your account.'
+          }
+        />
+        <PublicCard
+          title="What this site already covers"
+          description="The public website is the home for FAQ, privacy policy, terms of service, and launch information while Buddy Balance prepares for wider mobile release."
+        />
+        <PublicCard
+          title="Public email channel"
+          description="A domain-based support inbox will be added once the new mail setup is configured. Until then, authenticated users should use the in-app support flow so the request is attached to the correct account history."
+        />
+
+        {user?.id ? (
+          <Card style={styles.contactCard}>
+            <Text style={styles.contactTitle}>Send an in-app support message</Text>
+            <Text style={styles.contactText}>
+              Include what happened, what account or contact was involved, and what result you expected.
+            </Text>
+            <TextInput
+              value={subject}
+              onChangeText={setSubject}
+              placeholder="Subject (optional)"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
+            <TextInput
+              value={message}
+              onChangeText={setMessage}
+              placeholder="Describe what happened, what account or contact was involved, and what you expected..."
+              placeholderTextColor="#94A3B8"
+              style={[styles.input, styles.textarea]}
+              multiline
+              textAlignVertical="top"
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={() => void submitSupportMessage()} disabled={sending}>
+              <Text style={styles.sendButtonText}>{sending ? 'Sending...' : 'Send to support'}</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : null}
+      </PublicSiteLayout>
+    );
+  }
 
   return (
     <Screen style={styles.container}>

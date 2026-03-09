@@ -7,6 +7,7 @@ import { Card, Screen, Text } from '@/components/Themed';
 import { BrandLogo } from '@/components/BrandLogo';
 import { GoogleLogo } from '@/components/GoogleLogo';
 import { waitForAuthSession } from '@/services/authSession';
+import { getPasswordPolicyMessage, isStrongPassword } from '@/services/passwordPolicy';
 import { supabase } from '@/services/supabase';
 import { getGoogleOAuthUnavailableReason, isGoogleOAuthEnabledForBuild, signInWithGoogle } from '@/services/oauth';
 
@@ -50,7 +51,7 @@ export default function RegisterScreen() {
             return 'This email is already registered. Try signing in or reset your password.';
         }
         if (normalized.includes('password should be at least')) {
-            return 'Password must be at least 6 characters.';
+            return getPasswordPolicyMessage();
         }
         if (normalized.includes('unable to validate email address')) {
             return 'Please enter a valid email address.';
@@ -90,8 +91,8 @@ export default function RegisterScreen() {
             showMessage('Error', 'Please enter a valid email address.', 'error');
             return false;
         }
-        if (password.length < 6) {
-            showMessage('Error', 'Password must be at least 6 characters.', 'error');
+        if (!isStrongPassword(password)) {
+            showMessage('Error', getPasswordPolicyMessage(), 'error');
             return false;
         }
         if (password !== confirmPassword) {
@@ -324,7 +325,7 @@ export default function RegisterScreen() {
                                     <RNView style={styles.inputWrapper}>
                                         <Lock size={18} color="#94A3B8" style={styles.inputIcon} />
                                         <TextInput
-                                            placeholder="Minimum 6 characters"
+                                            placeholder="At least 10 chars, mixed case, and number"
                                             placeholderTextColor="#94A3B8"
                                             value={password}
                                             onChangeText={setPassword}

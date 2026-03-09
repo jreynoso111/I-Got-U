@@ -26,6 +26,11 @@
     "android": {
       "package": "com.jreynoso.buddybalance",
       "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#F8FAFC",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -41,6 +46,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       "expo-sharing",
       [
         "expo-image-picker",

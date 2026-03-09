@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
+import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
 
 const SECTIONS = [
   {
@@ -47,6 +48,26 @@ const SECTIONS = [
 ] as const;
 
 export default function PrivacyPolicyScreen() {
+  if (Platform.OS === 'web') {
+    return (
+      <PublicSiteLayout
+        eyebrow="Privacy Policy"
+        title="How Buddy Balance handles account and shared record data."
+        description="Buddy Balance is built around shared activity between connected people, so this policy explains both the personal data you provide and the event history that can become visible to other participants."
+        actions={[
+          { href: '/terms', label: 'Read Terms' },
+          { href: '/help-support', label: 'Support', variant: 'secondary' },
+        ]}
+      >
+        <View style={styles.webStack}>
+          {SECTIONS.map((section) => (
+            <PublicCard key={section.title} title={section.title} description={section.body} />
+          ))}
+        </View>
+      </PublicSiteLayout>
+    );
+  }
+
   return (
     <Screen style={styles.container}>
       <Stack.Screen options={{ title: 'Privacy Policy' }} />
@@ -100,6 +121,9 @@ const styles = StyleSheet.create({
   sectionCard: {
     padding: 18,
     marginBottom: 12,
+  },
+  webStack: {
+    gap: 16,
   },
   heading: {
     fontSize: 16,

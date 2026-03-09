@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
+import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
 
 const SECTIONS = [
   {
@@ -57,6 +58,26 @@ const SECTIONS = [
 ] as const;
 
 export default function TermsOfServiceScreen() {
+  if (Platform.OS === 'web') {
+    return (
+      <PublicSiteLayout
+        eyebrow="Terms of Service"
+        title="The ground rules for using Buddy Balance."
+        description="Buddy Balance is a shared tracking tool. It helps people record loans, payments, returns, and related activity, but it does not replace the real-world responsibility between the people involved."
+        actions={[
+          { href: '/privacy', label: 'Read Privacy Policy' },
+          { href: '/help-support', label: 'Support', variant: 'secondary' },
+        ]}
+      >
+        <View style={styles.webStack}>
+          {SECTIONS.map((section) => (
+            <PublicCard key={section.title} title={section.title} description={section.body} />
+          ))}
+        </View>
+      </PublicSiteLayout>
+    );
+  }
+
   return (
     <Screen style={styles.container}>
       <Stack.Screen options={{ title: 'Terms of Service' }} />
@@ -110,6 +131,9 @@ const styles = StyleSheet.create({
   sectionCard: {
     padding: 18,
     marginBottom: 12,
+  },
+  webStack: {
+    gap: 16,
   },
   heading: {
     fontSize: 16,

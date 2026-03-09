@@ -142,15 +142,17 @@ export default function NewContactScreen() {
             const targetProfile = Array.isArray((data as any).target_profile)
                 ? (data as any).target_profile[0]
                 : (data as any).target_profile;
+            const normalizedLinkStatus = normalizeLinkStatus(data.link_status || (data.target_user_id ? 'accepted' : 'private'));
+            const preferLinkedProfile = normalizedLinkStatus === 'accepted' && targetProfile;
 
-            setName(data.name || targetProfile?.full_name || '');
+            setName(preferLinkedProfile ? (targetProfile?.full_name || targetProfile?.email || data.name || '') : (data.name || targetProfile?.full_name || ''));
             setFriendCode(targetProfile?.friend_code || '');
-            setEmail(data.email || targetProfile?.email || '');
-            setPhone(data.phone || targetProfile?.phone || '');
+            setEmail(preferLinkedProfile ? (targetProfile?.email || data.email || '') : (data.email || targetProfile?.email || ''));
+            setPhone(preferLinkedProfile ? (targetProfile?.phone || data.phone || '') : (data.phone || targetProfile?.phone || ''));
             setNotes(data.notes || '');
             setSocialNetwork(data.social_network || '');
             setExistingTargetUserId(data.target_user_id || null);
-            setExistingLinkStatus(normalizeLinkStatus(data.link_status || (data.target_user_id ? 'accepted' : 'private')));
+            setExistingLinkStatus(normalizedLinkStatus);
         }
         setLoading(false);
     };

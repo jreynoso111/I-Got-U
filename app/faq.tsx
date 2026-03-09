@@ -1,7 +1,8 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
+import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
 
 const FAQ_ITEMS = [
   {
@@ -67,6 +68,26 @@ const FAQ_ITEMS = [
 ] as const;
 
 export default function FAQScreen() {
+  if (Platform.OS === 'web') {
+    return (
+      <PublicSiteLayout
+        eyebrow="FAQ"
+        title="Questions people ask before and after using Buddy Balance."
+        description="These answers reflect the current product behavior around records, contacts, notifications, shared history, Premium, and account support."
+        actions={[
+          { href: '/help-support', label: 'Need support?' },
+          { href: '/privacy', label: 'Privacy Policy', variant: 'secondary' },
+        ]}
+      >
+        <View style={styles.webStack}>
+          {FAQ_ITEMS.map((item) => (
+            <PublicCard key={item.question} title={item.question} description={item.answer} />
+          ))}
+        </View>
+      </PublicSiteLayout>
+    );
+  }
+
   return (
     <Screen style={styles.container}>
       <Stack.Screen options={{ title: 'Frequently Asked Questions' }} />
@@ -120,6 +141,9 @@ const styles = StyleSheet.create({
   faqCard: {
     padding: 18,
     marginBottom: 12,
+  },
+  webStack: {
+    gap: 16,
   },
   question: {
     fontSize: 16,

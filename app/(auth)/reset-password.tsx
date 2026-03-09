@@ -5,6 +5,7 @@ import * as Linking from 'expo-linking';
 import { Lock, ArrowLeft } from 'lucide-react-native';
 
 import { Text, Screen, Card } from '@/components/Themed';
+import { getPasswordPolicyMessage, isStrongPassword } from '@/services/passwordPolicy';
 import { supabase } from '@/services/supabase';
 
 type RecoveryTokens = {
@@ -71,8 +72,8 @@ export default function ResetPasswordScreen() {
             Alert.alert('Error', 'Please complete both fields.');
             return;
         }
-        if (password.length < 6) {
-            Alert.alert('Error', 'Password must be at least 6 characters.');
+        if (!isStrongPassword(password)) {
+            Alert.alert('Error', getPasswordPolicyMessage());
             return;
         }
         if (password !== confirmPassword) {
@@ -123,7 +124,7 @@ export default function ResetPasswordScreen() {
                                     <RNView style={styles.inputWrapper}>
                                         <Lock size={18} color="#94A3B8" style={styles.inputIcon} />
                                         <TextInput
-                                            placeholder="Minimum 6 characters"
+                                            placeholder="At least 10 chars, mixed case, and number"
                                             placeholderTextColor="#94A3B8"
                                             value={password}
                                             onChangeText={setPassword}

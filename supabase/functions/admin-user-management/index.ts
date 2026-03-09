@@ -4,7 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const DEFAULT_RESET_REDIRECT_TO = Deno.env.get('ADMIN_RESET_REDIRECT_TO') || 'igotyou://reset-password';
+const DEFAULT_RESET_REDIRECT_TO = Deno.env.get('ADMIN_RESET_REDIRECT_TO') || 'buddybalance://reset-password';
 
 const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 

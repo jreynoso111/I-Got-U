@@ -3,8 +3,10 @@ import { Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, Vie
 import { Stack } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
 import { useAuthStore } from '@/store/authStore';
+import { getPasswordPolicyMessage, isStrongPassword } from '@/services/passwordPolicy';
 import { supabase } from '@/services/supabase';
 import { getOrCreateUserPreferences, updateUserPreferences } from '@/services/userPreferences';
+import { setCachedBiometricLockEnabled } from '@/services/appLock';
 import { getBiometricCapability, promptBiometricVerification } from '@/services/biometrics';
 
 export default function SecurityScreen() {
@@ -41,11 +43,13 @@ export default function SecurityScreen() {
     }
 
     const savedPreference = Boolean(data?.biometric_enabled);
+    await setCachedBiometricLockEnabled(user.id, savedPreference && capability.hasHardware && capability.isEnrolled);
     if (savedPreference && (!capability.hasHardware || !capability.isEnrolled)) {
       const { error: disableError } = await updateUserPreferences(user.id, { biometric_enabled: false });
       if (disableError) {
         Alert.alert('Error', disableError.message);
       }
+      await setCachedBiometricLockEnabled(user.id, false);
       setBiometricEnabled(false);
       return;
     }
@@ -114,6 +118,7 @@ export default function SecurityScreen() {
         return;
       }
 
+      await setCachedBiometricLockEnabled(user.id, true);
       setBiometricEnabled(true);
       Alert.alert('Success', `${capability.label} has been enabled.`);
     } catch (e: any) {
@@ -132,6 +137,7 @@ export default function SecurityScreen() {
         Alert.alert('Error', error.message);
         return;
       }
+      await setCachedBiometricLockEnabled(user.id, false);
       setBiometricEnabled(false);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'An unexpected error occurred while disabling biometrics.');
@@ -175,8 +181,8 @@ export default function SecurityScreen() {
   };
 
   const handlePasswordUpdate = async () => {
-    if (newPassword.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters');
+    if (!isStrongPassword(newPassword)) {
+      Alert.alert('Error', getPasswordPolicyMessage());
       return;
     }
     if (newPassword !== confirmPassword) {

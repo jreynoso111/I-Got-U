@@ -218,7 +218,7 @@ export default function SettingsScreen() {
                     <Text style={styles.signOutText}>{signingOut ? 'Signing Out...' : 'Sign Out'}</Text>
                 </TouchableOpacity>
 
-                <Text style={styles.version}>Buddy Balance v1.0.0 • jreynoso</Text>
+                <Text style={styles.version}>Buddy Balance v1.0.0</Text>
             </ScrollView>
         </Screen>
     );

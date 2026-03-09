@@ -11,19 +11,23 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <title>Buddy Balance</title>
+        <title>Buddy Balance | Shared Balance Tracking</title>
         <meta name="theme-color" content="#6366F1" />
-        <meta name="description" content="Buddy Balance - track shared loans, payments, and favors with clarity." />
+        <meta
+          name="description"
+          content="Buddy Balance helps friends, families, and trusted contacts track shared balances, payments, and lending history with clarity."
+        />
+        <meta property="og:title" content="Buddy Balance" />
+        <meta
+          property="og:description"
+          content="Shared balance tracking for friends, families, and trusted contacts."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="Buddy Balance" />
+        <meta name="apple-mobile-web-app-title" content="Buddy Balance" />
 
-        {/* 
-          Disable body scrolling on web. This makes ScrollView components work closer to how they do on native. 
-          However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.
-        */}
         <ScrollViewStyleReset />
-
-        {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
-        {/* Add any additional <head> elements that you want globally available on web... */}
       </head>
       <body>{children}</body>
     </html>
@@ -31,11 +35,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
 }
 
 const responsiveBackground = `
-body {
-  background-color: #fff;
+html {
+  background: #f6f8ff;
 }
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #000;
-  }
+body {
+  background-color: #f6f8ff;
+  color: #0f172a;
+}
+a {
+  color: inherit;
+  text-decoration: none;
 }`;

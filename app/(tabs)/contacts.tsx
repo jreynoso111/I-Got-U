@@ -64,6 +64,33 @@ type ContactItem = {
   } | null;
 };
 
+function getLinkedContactName(contact: Pick<ContactItem, 'name' | 'link_status' | 'target_profile'>) {
+  if (contact.link_status === 'accepted') {
+    const profileName = String(contact.target_profile?.full_name || contact.target_profile?.email || '').trim();
+    if (profileName) return profileName;
+  }
+
+  return contact.name;
+}
+
+function getLinkedContactPhone(contact: Pick<ContactItem, 'phone' | 'link_status' | 'target_profile'>) {
+  if (contact.link_status === 'accepted') {
+    const profilePhone = String(contact.target_profile?.phone || '').trim();
+    if (profilePhone) return profilePhone;
+  }
+
+  return contact.phone || null;
+}
+
+function getLinkedContactEmail(contact: Pick<ContactItem, 'email' | 'link_status' | 'target_profile'>) {
+  if (contact.link_status === 'accepted') {
+    const profileEmail = String(contact.target_profile?.email || '').trim();
+    if (profileEmail) return profileEmail;
+  }
+
+  return contact.email || null;
+}
+
 export default function ContactsScreen() {
   const { user } = useAuthStore();
   const [contacts, setContacts] = useState<ContactItem[]>([]);
@@ -209,15 +236,23 @@ export default function ContactsScreen() {
     };
   }, [fetchContacts, user?.id]);
 
-  const filteredContacts = contacts.filter((contact) =>
-    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (contact.phone && contact.phone.includes(searchQuery)) ||
-    (contact.email && contact.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredContacts = contacts.filter((contact) => {
+    const displayName = getLinkedContactName(contact).toLowerCase();
+    const normalizedQuery = searchQuery.toLowerCase();
+
+    return (
+      displayName.includes(normalizedQuery) ||
+      contact.name.toLowerCase().includes(normalizedQuery) ||
+      Boolean(contact.phone && contact.phone.includes(searchQuery)) ||
+      Boolean(contact.email && contact.email.toLowerCase().includes(normalizedQuery)) ||
+      Boolean(contact.target_profile?.phone && contact.target_profile.phone.includes(searchQuery)) ||
+      Boolean(contact.target_profile?.email && contact.target_profile.email.toLowerCase().includes(normalizedQuery))
+    );
+  });
 
   const openHistoryModal = (contact: ContactItem) => {
     setSelectedHistoryContact({
-      name: contact.name,
+      name: getLinkedContactName(contact),
       events: contact.historyEntries,
     });
   };
@@ -275,6 +310,7 @@ export default function ContactsScreen() {
           const summaryTone = getSummaryTone(item.balance, item.itemsOwed);
           const compactDetails = getCompactDetails(item);
           const recentHistory = item.historyEntries.slice(0, 3);
+          const displayName = getLinkedContactName(item);
 
           return (
             <RNView
@@ -286,12 +322,12 @@ export default function ContactsScreen() {
               <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedContactId(isExpanded ? null : item.id)}>
                 <Card style={[styles.contactItem, isExpanded && styles.contactItemExpanded]}>
                   <RNView style={styles.avatar}>
-                    <Text style={styles.avatarText}>{item.name[0]?.toUpperCase()}</Text>
+                    <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
                   </RNView>
 
                   <RNView style={styles.contactInfo}>
                     <RNView style={styles.contactNameRow}>
-                      <Text style={styles.contactName}>{item.name}</Text>
+                      <Text style={styles.contactName}>{displayName}</Text>
                       {item.link_status === 'accepted' ? (
                         <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgeAccepted]}>
                           <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextAccepted]}>Linked</Text>
@@ -303,7 +339,7 @@ export default function ContactsScreen() {
                       ) : null}
                     </RNView>
                     <Text style={styles.contactDetail}>
-                      {item.phone || item.email || item.target_profile?.phone || item.target_profile?.email || item.social_network || 'Tap to view details and history'}
+                      {getLinkedContactPhone(item) || getLinkedContactEmail(item) || item.social_network || 'Tap to view details and history'}
                     </Text>
                   </RNView>
 
@@ -643,10 +679,12 @@ function buildContactHistory(loans: ContactLoan[], paymentsByLoan: Map<string, C
 
 function getCompactDetails(contact: ContactItem) {
   const profile = contact.target_profile;
+  const phone = getLinkedContactPhone(contact);
+  const email = getLinkedContactEmail(contact);
 
   return [
-    contact.phone || profile?.phone ? { label: 'Phone', value: contact.phone || profile?.phone || '' } : null,
-    contact.email || profile?.email ? { label: 'Email', value: contact.email || profile?.email || '' } : null,
+    phone ? { label: 'Phone', value: phone } : null,
+    email ? { label: 'Email', value: email } : null,
     contact.social_network ? { label: 'Social', value: contact.social_network } : null,
     profile?.friend_code ? { label: 'Friend code', value: profile.friend_code } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;

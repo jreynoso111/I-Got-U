@@ -18,6 +18,13 @@ const NON_RECOVERABLE_PATH_PREFIXES = [
     '/register-payment',
     '/profile',
 ];
+const PUBLIC_PATH_PREFIXES = [
+    '/faq',
+    '/help-support',
+    '/help/',
+    '/privacy',
+    '/terms',
+];
 const isMissingDefaultLanguageColumn = (message?: string) =>
     String(message || '').toLowerCase().includes('default_language');
 const isInvalidRefreshTokenError = (message?: string) => {
@@ -52,6 +59,12 @@ export const useAuth = () => {
     const isRecoverableProtectedPath = (value?: string | null) => {
         if (!value) return false;
         return !NON_RECOVERABLE_PATH_PREFIXES.some((prefix) => value.startsWith(prefix));
+    };
+
+    const isPublicPath = (value?: string | null) => {
+        if (!value) return false;
+        const normalized = value.toLowerCase();
+        return PUBLIC_PATH_PREFIXES.some((prefix) => normalized === prefix || normalized.startsWith(prefix));
     };
 
     const fetchProfileMeta = async (userId: string) => {
@@ -279,6 +292,7 @@ export const useAuth = () => {
             normalizedPath.startsWith('/reset-password');
         const isLandingPage = normalizedPath === '/' && !inTabsRoute && !inAdminRoute;
         const isResetPassword = normalizedPath.startsWith('/reset-password');
+        const isPublicMarketingRoute = isPublicPath(normalizedPath);
         const isEphemeralFormRoute =
             normalizedPath.startsWith('/new-contact') ||
             normalizedPath.startsWith('/new-loan') ||
@@ -286,14 +300,14 @@ export const useAuth = () => {
             normalizedPath.startsWith('/register-payment');
 
         const handleRouting = async () => {
-            if (session && !inAuthRoute && !isLandingPage && !isEphemeralFormRoute) {
+            if (session && !inAuthRoute && !isLandingPage && !isPublicMarketingRoute && !isEphemeralFormRoute) {
                 // Keep track of last protected route for refresh/reload recovery.
                 const pathToPersist = isRecoverableProtectedPath(pathname) ? pathname : '/(tabs)';
                 await AsyncStorage.setItem(LAST_PROTECTED_PATH_KEY, pathToPersist);
                 return;
             }
 
-            if (!session && !inAuthRoute && !isLandingPage && !isEphemeralFormRoute) {
+            if (!session && !inAuthRoute && !isLandingPage && !isPublicMarketingRoute && !isEphemeralFormRoute) {
                 // User is not signed in and not in the auth group or landing page, redirect to landing page
                 if (pathname !== '/') {
                     router.replace('/');
