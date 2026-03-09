@@ -13,6 +13,7 @@ type AppShowcaseProps = {
 export function AppShowcase({ compact = false }: AppShowcaseProps) {
   const { width } = useWindowDimensions();
   const medium = compact || width < 980;
+  const stacked = compact || width < 760;
   const mobile = width < 560;
   const primaryFloat = useRef(new Animated.Value(0)).current;
   const secondaryFloat = useRef(new Animated.Value(0)).current;
@@ -81,52 +82,94 @@ export function AppShowcase({ compact = false }: AppShowcaseProps) {
         </Text>
       </View>
 
-      <Animated.View
-        style={[
-          styles.primaryPhoneWrap,
-          medium && styles.primaryPhoneWrapCompact,
-          mobile && styles.primaryPhoneWrapMobile,
-          {
-            transform: [{ translateY: primaryShift }, { scale: mobile ? 0.82 : medium ? 0.9 : 1 }],
-          },
-        ]}
-      >
-        <PhoneFrame variant="home" />
-      </Animated.View>
+      {stacked ? (
+        <View style={[styles.phoneRail, mobile && styles.phoneRailMobile]}>
+          <Animated.View
+            style={[
+              styles.phoneRailItem,
+              styles.phoneRailItemLead,
+              {
+                transform: [{ translateY: primaryShift }, { rotate: mobile ? '-2deg' : '-4deg' }, { scale: mobile ? 0.72 : 0.8 }],
+              },
+            ]}
+          >
+            <PhoneFrame variant="contacts" />
+          </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.secondaryPhoneWrap,
-          medium && styles.secondaryPhoneWrapCompact,
-          mobile && styles.secondaryPhoneWrapMobile,
-          {
-            transform: [
-              { translateY: secondaryShift },
-              { rotate: mobile ? '-4deg' : '-7deg' },
-              { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
-            ],
-          },
-        ]}
-      >
-        <PhoneFrame variant="contacts" />
-      </Animated.View>
+          <Animated.View
+            style={[
+              styles.phoneRailItem,
+              styles.phoneRailItemCenter,
+              {
+                transform: [{ translateY: primaryShift }, { scale: mobile ? 0.86 : 0.94 }],
+              },
+            ]}
+          >
+            <PhoneFrame variant="home" />
+          </Animated.View>
 
-      <Animated.View
-        style={[
-          styles.tertiaryPhoneWrap,
-          medium && styles.tertiaryPhoneWrapCompact,
-          mobile && styles.tertiaryPhoneWrapMobile,
-          {
-            transform: [
-              { translateY: secondaryShift },
-              { rotate: mobile ? '5deg' : '8deg' },
-              { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
-            ],
-          },
-        ]}
-      >
-        <PhoneFrame variant="premium" />
-      </Animated.View>
+          <Animated.View
+            style={[
+              styles.phoneRailItem,
+              styles.phoneRailItemTrail,
+              {
+                transform: [{ translateY: secondaryShift }, { rotate: mobile ? '2deg' : '4deg' }, { scale: mobile ? 0.72 : 0.8 }],
+              },
+            ]}
+          >
+            <PhoneFrame variant="premium" />
+          </Animated.View>
+        </View>
+      ) : (
+        <>
+          <Animated.View
+            style={[
+              styles.primaryPhoneWrap,
+              medium && styles.primaryPhoneWrapCompact,
+              mobile && styles.primaryPhoneWrapMobile,
+              {
+                transform: [{ translateY: primaryShift }, { scale: mobile ? 0.82 : medium ? 0.9 : 1 }],
+              },
+            ]}
+          >
+            <PhoneFrame variant="home" />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.secondaryPhoneWrap,
+              medium && styles.secondaryPhoneWrapCompact,
+              mobile && styles.secondaryPhoneWrapMobile,
+              {
+                transform: [
+                  { translateY: secondaryShift },
+                  { rotate: mobile ? '-4deg' : '-7deg' },
+                  { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
+                ],
+              },
+            ]}
+          >
+            <PhoneFrame variant="contacts" />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.tertiaryPhoneWrap,
+              medium && styles.tertiaryPhoneWrapCompact,
+              mobile && styles.tertiaryPhoneWrapMobile,
+              {
+                transform: [
+                  { translateY: secondaryShift },
+                  { rotate: mobile ? '5deg' : '8deg' },
+                  { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
+                ],
+              },
+            ]}
+          >
+            <PhoneFrame variant="premium" />
+          </Animated.View>
+        </>
+      )}
     </View>
   );
 }
@@ -344,7 +387,7 @@ const styles = StyleSheet.create({
     minHeight: 460,
   },
   stageMobile: {
-    minHeight: 360,
+    minHeight: 0,
     paddingTop: 8,
   },
   backdropPlate: {
@@ -395,6 +438,31 @@ const styles = StyleSheet.create({
   },
   primaryPhoneWrapMobile: {
     marginTop: 0,
+  },
+  phoneRail: {
+    marginTop: 26,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    gap: 0,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+  },
+  phoneRailMobile: {
+    marginTop: 8,
+    paddingHorizontal: 0,
+  },
+  phoneRailItem: {
+    marginHorizontal: -38,
+  },
+  phoneRailItemLead: {
+    zIndex: 1,
+  },
+  phoneRailItemCenter: {
+    zIndex: 3,
+  },
+  phoneRailItemTrail: {
+    zIndex: 2,
   },
   secondaryPhoneWrap: {
     position: 'absolute',
