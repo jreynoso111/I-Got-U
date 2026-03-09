@@ -1,6 +1,12 @@
 import React from 'react';
 import { Link, usePathname, type Href } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { BrandLogo } from '@/components/BrandLogo';
@@ -17,6 +23,7 @@ type PublicSiteLayoutProps = {
   title: string;
   description: string;
   actions?: PublicAction[];
+  heroVisual?: React.ReactNode;
   children: React.ReactNode;
 };
 
@@ -26,6 +33,13 @@ const NAV_ITEMS: { href: Href; path: string; label: string }[] = [
   { href: '/help-support', path: '/help-support', label: 'Support' },
   { href: '/privacy', path: '/privacy', label: 'Privacy' },
   { href: '/terms', path: '/terms', label: 'Terms' },
+];
+
+const SIGNALS = [
+  'Shared records',
+  'Notification events',
+  'Friend-linked accounts',
+  'Premium exports',
 ];
 
 function isActivePath(currentPath: string, href: string) {
@@ -38,9 +52,12 @@ export function PublicSiteLayout({
   title,
   description,
   actions,
+  heroVisual,
   children,
 }: PublicSiteLayoutProps) {
   const pathname = usePathname() || '/';
+  const { width } = useWindowDimensions();
+  const compact = width < 960;
 
   return (
     <ScrollView
@@ -48,13 +65,28 @@ export function PublicSiteLayout({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      <View style={styles.backgroundLayer}>
+        <LinearGradient colors={['#EEF2FF', '#F7F1FF', '#FFF5E9']} style={styles.gradientWash} />
+        <View style={[styles.orb, styles.orbLeft]} />
+        <View style={[styles.orb, styles.orbRight]} />
+        <View style={[styles.orb, styles.orbBottom]} />
+      </View>
+
       <View style={styles.shell}>
-        <View style={styles.header}>
+        <LinearGradient colors={['rgba(255,255,255,0.88)', 'rgba(255,255,255,0.62)']} style={styles.headerChrome}>
           <Link href="/" style={styles.brandLink}>
-            <BrandLogo size="md" />
+            <View style={styles.brandWrap}>
+              <BrandLogo size="md" />
+              <View style={styles.brandMeta}>
+                <Text style={styles.brandKicker}>Buddy Balance</Text>
+                {!compact ? (
+                  <Text style={styles.brandSubcopy}>Shared tracking for people who actually know each other.</Text>
+                ) : null}
+              </View>
+            </View>
           </Link>
 
-          <View style={styles.nav}>
+          <View style={[styles.nav, compact && styles.navCompact]}>
             {NAV_ITEMS.map((item) => {
               const active = isActivePath(pathname, item.path);
               return (
@@ -68,46 +100,70 @@ export function PublicSiteLayout({
               );
             })}
           </View>
-        </View>
+        </LinearGradient>
 
-        <View style={styles.hero}>
-          {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
+        <View style={[styles.heroShell, compact && styles.heroShellCompact]}>
+          <LinearGradient
+            colors={['rgba(255,255,255,0.92)', 'rgba(255,255,255,0.68)']}
+            style={[styles.heroPanel, compact && styles.heroPanelCompact]}
+          >
+            <View style={styles.heroPanelHeader}>
+              <Text style={styles.heroDot}>REC</Text>
+              <View style={styles.heroSignalRow}>
+                {SIGNALS.map((signal) => (
+                  <View key={signal} style={styles.signalChip}>
+                    <Text style={styles.signalLabel}>{signal}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
 
-          {actions?.length ? (
-            <View style={styles.actions}>
-              {actions.map((action) => (
-                <Link
-                  key={`${action.href}:${action.label}`}
-                  href={action.href}
-                  style={[
-                    styles.actionButton,
-                    action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
-                  ]}
-                >
-                  <Text
+            {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
+            <Text style={[styles.title, compact && styles.titleCompact]}>{title}</Text>
+            <Text style={styles.description}>{description}</Text>
+
+            {actions?.length ? (
+              <View style={styles.actions}>
+                {actions.map((action) => (
+                  <Link
+                    key={`${action.href}:${action.label}`}
+                    href={action.href}
                     style={[
-                      styles.actionLabel,
-                      action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
+                      styles.actionButton,
+                      action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
                     ]}
                   >
-                    {action.label}
-                  </Text>
-                </Link>
-              ))}
-            </View>
-          ) : null}
+                    <Text
+                      style={[
+                        styles.actionLabel,
+                        action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
+                      ]}
+                    >
+                      {action.label}
+                    </Text>
+                  </Link>
+                ))}
+              </View>
+            ) : null}
+          </LinearGradient>
+
+          {heroVisual ? <View style={[styles.heroVisual, compact && styles.heroVisualCompact]}>{heroVisual}</View> : null}
         </View>
 
         <View style={styles.body}>{children}</View>
 
-        <View style={styles.footer}>
+        <LinearGradient colors={['rgba(15,23,42,0.96)', 'rgba(30,41,59,0.92)']} style={styles.footerShell}>
+          <View style={styles.footerRow}>
+            <View style={styles.footerStamp}>
+              <Text style={styles.footerStampText}>MOBILE FIRST</Text>
+            </View>
+            <Text style={styles.footerNote}>
+              Buddy Balance is rolling toward public release. This site hosts support, policies, and product context
+              while the mobile app gets finalized.
+            </Text>
+          </View>
           <AppLegalFooter style={styles.footerText} />
-          <Text style={styles.footerNote}>
-            Mobile release is in progress. This site is the public home for support, policies, and launch information.
-          </Text>
-        </View>
+        </LinearGradient>
       </View>
     </ScrollView>
   );
@@ -123,39 +179,105 @@ export function PublicCard({
   children?: React.ReactNode;
 }) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{title}</Text>
+    <LinearGradient colors={['rgba(255,255,255,0.94)', 'rgba(255,255,255,0.7)']} style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardBadge}>
+          <Text style={styles.cardBadgeText}>BB</Text>
+        </View>
+        <Text style={styles.cardTitle}>{title}</Text>
+      </View>
       {description ? <Text style={styles.cardDescription}>{description}</Text> : null}
       {children}
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: '#F6F8FF',
+    backgroundColor: '#F8F5FF',
   },
   content: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 22,
+  },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  gradientWash: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  orb: {
+    position: 'absolute',
+    borderRadius: 999,
+    backgroundColor: 'rgba(99,102,241,0.12)',
+  },
+  orbLeft: {
+    width: 340,
+    height: 340,
+    left: -120,
+    top: 120,
+  },
+  orbRight: {
+    width: 420,
+    height: 420,
+    right: -150,
+    top: 40,
+    backgroundColor: 'rgba(14,165,233,0.12)',
+  },
+  orbBottom: {
+    width: 420,
+    height: 420,
+    right: 80,
+    bottom: -220,
+    backgroundColor: 'rgba(244,114,182,0.1)',
   },
   shell: {
     width: '100%',
-    maxWidth: 1120,
+    maxWidth: 1220,
     alignSelf: 'center',
+    gap: 18,
   },
-  header: {
-    width: '100%',
+  headerChrome: {
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.78)',
+    paddingHorizontal: 18,
+    paddingVertical: 16,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 16,
-    paddingVertical: 8,
+    shadowColor: '#4338CA',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.14,
+    shadowRadius: 34,
+    elevation: 12,
   },
   brandLink: {
-    alignSelf: 'flex-start',
+    flexShrink: 1,
+  },
+  brandWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  brandMeta: {
+    gap: 2,
+    maxWidth: 360,
+  },
+  brandKicker: {
+    fontSize: 12,
+    letterSpacing: 2,
+    color: '#6366F1',
+    fontFamily: 'SpaceMono',
+  },
+  brandSubcopy: {
+    color: '#475569',
+    fontSize: 13,
+    lineHeight: 20,
   },
   nav: {
     flexDirection: 'row',
@@ -163,131 +285,232 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 10,
   },
+  navCompact: {
+    justifyContent: 'flex-start',
+  },
   navLink: {
-    minHeight: 40,
-    paddingHorizontal: 14,
+    minHeight: 42,
+    paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.72)',
+    backgroundColor: 'rgba(255,255,255,0.48)',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(148,163,184,0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navLinkActive: {
-    backgroundColor: '#0F172A',
-    borderColor: '#0F172A',
+    backgroundColor: '#101A3A',
+    borderColor: '#101A3A',
   },
   navLabel: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#334155',
+    color: '#1E293B',
+    fontWeight: '800',
   },
   navLabelActive: {
-    color: '#FFFFFF',
+    color: '#F8FAFC',
   },
-  hero: {
-    marginTop: 28,
+  heroShell: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 18,
+  },
+  heroShellCompact: {
+    flexDirection: 'column',
+  },
+  heroPanel: {
+    flex: 1,
+    minWidth: 320,
+    borderRadius: 36,
     padding: 28,
-    borderRadius: 28,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#DDE5FF',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.08,
-    shadowRadius: 40,
-    elevation: 8,
+    borderColor: 'rgba(255,255,255,0.72)',
+    shadowColor: '#312E81',
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.16,
+    shadowRadius: 34,
+    elevation: 14,
+  },
+  heroPanelCompact: {
+    padding: 24,
+  },
+  heroPanelHeader: {
+    gap: 14,
+    marginBottom: 16,
+  },
+  heroDot: {
+    color: '#EF4444',
+    fontFamily: 'SpaceMono',
+    fontSize: 12,
+    letterSpacing: 1.6,
+  },
+  heroSignalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  signalChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15,23,42,0.06)',
+  },
+  signalLabel: {
+    fontSize: 11,
+    color: '#334155',
+    fontFamily: 'SpaceMono',
   },
   eyebrow: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#6366F1',
-    letterSpacing: 1.1,
+    letterSpacing: 2.2,
+    color: '#4F46E5',
+    fontFamily: 'SpaceMono',
     textTransform: 'uppercase',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 42,
-    lineHeight: 48,
+    fontSize: 54,
+    lineHeight: 58,
     fontWeight: '900',
     color: '#0F172A',
-    maxWidth: 760,
+    maxWidth: 720,
+  },
+  titleCompact: {
+    fontSize: 42,
+    lineHeight: 46,
   },
   description: {
-    marginTop: 14,
-    fontSize: 18,
-    lineHeight: 28,
+    marginTop: 18,
+    fontSize: 19,
+    lineHeight: 31,
     color: '#475569',
-    maxWidth: 760,
+    maxWidth: 700,
   },
   actions: {
+    marginTop: 28,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginTop: 24,
   },
   actionButton: {
-    minHeight: 48,
-    borderRadius: 16,
+    minHeight: 52,
+    borderRadius: 18,
     paddingHorizontal: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
   },
   actionPrimary: {
-    backgroundColor: '#6366F1',
-    borderColor: '#6366F1',
+    backgroundColor: '#5B63FF',
+    borderColor: '#5B63FF',
+    shadowColor: '#5B63FF',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 8,
   },
   actionSecondary: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#CBD5E1',
+    backgroundColor: 'rgba(255,255,255,0.62)',
+    borderColor: '#D6DAFF',
   },
   actionLabel: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
+    letterSpacing: 0.2,
   },
   actionPrimaryLabel: {
     color: '#FFFFFF',
   },
   actionSecondaryLabel: {
-    color: '#0F172A',
+    color: '#101A3A',
+  },
+  heroVisual: {
+    width: 420,
+    maxWidth: '100%',
+  },
+  heroVisualCompact: {
+    width: '100%',
   },
   body: {
-    marginTop: 18,
-    gap: 16,
+    gap: 18,
   },
   card: {
     padding: 22,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: 'rgba(255,255,255,0.74)',
+    shadowColor: '#312E81',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.09,
+    shadowRadius: 26,
+    elevation: 10,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  cardBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardBadgeText: {
+    color: '#4F46E5',
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
   },
   cardTitle: {
-    fontSize: 20,
+    flex: 1,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: '900',
     color: '#0F172A',
   },
   cardDescription: {
-    marginTop: 8,
+    marginTop: 12,
     fontSize: 15,
     lineHeight: 24,
     color: '#475569',
   },
-  footer: {
-    marginTop: 24,
-    paddingVertical: 20,
-    alignItems: 'center',
+  footerShell: {
+    marginTop: 8,
+    borderRadius: 28,
+    padding: 22,
+    gap: 14,
   },
-  footerText: {
-    color: '#64748B',
-    fontSize: 12,
+  footerRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  footerStamp: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  footerStampText: {
+    color: '#C7D2FE',
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
+    letterSpacing: 1.8,
   },
   footerNote: {
-    marginTop: 8,
+    flex: 1,
+    minWidth: 220,
+    color: '#CBD5E1',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  footerText: {
+    color: '#F8FAFC',
     fontSize: 12,
-    lineHeight: 18,
-    color: '#94A3B8',
-    textAlign: 'center',
-    maxWidth: 760,
   },
 });

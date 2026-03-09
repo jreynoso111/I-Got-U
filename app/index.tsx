@@ -2,13 +2,23 @@ import React from 'react';
 import { StyleSheet, Text, View, Pressable, Dimensions, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
-import { ArrowRight, BellRing, ShieldCheck, UsersRound, WalletCards, Zap } from 'lucide-react-native';
+import {
+    ArrowRight,
+    BellRing,
+    FolderClock,
+    ShieldCheck,
+    Sparkles,
+    UsersRound,
+    WalletCards,
+    Zap,
+} from 'lucide-react-native';
 import { AnimatedBackground } from '@/components/AnimatedBackground';
 import { BrandLogo } from '@/components/BrandLogo';
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
+import { AppShowcase } from '@/components/website/AppShowcase';
 
 const { width } = Dimensions.get('window');
 
@@ -18,64 +28,104 @@ export default function LandingPage() {
     if (Platform.OS === 'web') {
         return (
             <PublicSiteLayout
-                eyebrow="Buddy Balance"
-                title="Shared balance tracking for real relationships."
-                description="Buddy Balance helps friends, families, and trusted contacts keep track of shared money, item loans, and payment history without losing context."
+                eyebrow="Buddy Balance . Mobile Ledger . 2026"
+                title="The cleanest way to track what friends owe, what you owe, and what changed."
+                description="Buddy Balance turns informal lending into something readable: shared balances, friend-linked records, notifications that make sense, and premium export tools wrapped in a warm mobile-first interface."
                 actions={[
-                    { href: '/help-support', label: 'Support & FAQ' },
-                    { href: '/privacy', label: 'Read Privacy Policy', variant: 'secondary' },
+                    { href: '/help-support', label: 'Explore the product' },
+                    { href: '/faq', label: 'Read the FAQ', variant: 'secondary' },
                 ]}
+                heroVisual={<AppShowcase />}
             >
-                <View style={styles.webGrid}>
-                    <PublicCard
-                        title="Track what changed"
-                        description="Keep a clean history of who lent what, what has already been paid back, and which records still need attention."
-                    />
-                    <PublicCard
-                        title="Keep both sides informed"
-                        description="Shared events, confirmations, and notifications make it easier for both people to understand the current state without rewriting history."
-                    />
-                    <PublicCard
-                        title="Built for mobile release"
-                        description="The mobile app is being prepared for store launch. This website hosts the public-facing policies, FAQ, and support information in the meantime."
-                    />
+                <View style={styles.webRibbon}>
+                    <Text style={styles.webRibbonText}>
+                        RETRO GLOSS . TRUSTED CONTACTS . SHARED EVENTS . HUMAN-FRIENDLY LEDGERS
+                    </Text>
                 </View>
 
-                <View style={styles.webHighlights}>
-                    <View style={styles.webFeatureCard}>
-                        <View style={styles.webFeatureIcon}>
-                            <WalletCards size={22} color="#4F46E5" />
+                <View style={styles.webMagazineGrid}>
+                    <PublicCard
+                        title="A shared ledger that still feels personal"
+                        description="The app was designed for real relationships, not anonymous invoicing. You can track borrowed cash, returned items, partial payments, friend links, and notification events without flattening everything into boring spreadsheet language."
+                    >
+                        <View style={styles.webFeatureList}>
+                            <FeatureBullet
+                                icon={<WalletCards size={16} color="#4F46E5" />}
+                                text="Cash and item records live in the same timeline."
+                            />
+                            <FeatureBullet
+                                icon={<BellRing size={16} color="#0EA5E9" />}
+                                text="Informational events notify the other side without fake approvals."
+                            />
+                            <FeatureBullet
+                                icon={<UsersRound size={16} color="#16A34A" />}
+                                text="Friend-linked contacts stay mirrored instead of duplicating bad data."
+                            />
                         </View>
-                        <View style={styles.webFeatureCopy}>
-                            <Text style={styles.webFeatureTitle}>Money and item records</Text>
-                            <Text style={styles.webFeatureText}>
-                                Track cash loans, item returns, partial payments, and direction of ownership in one shared ledger.
-                            </Text>
-                        </View>
-                    </View>
+                    </PublicCard>
 
-                    <View style={styles.webFeatureCard}>
-                        <View style={styles.webFeatureIcon}>
-                            <BellRing size={22} color="#0EA5E9" />
-                        </View>
-                        <View style={styles.webFeatureCopy}>
-                            <Text style={styles.webFeatureTitle}>Actionable notifications</Text>
-                            <Text style={styles.webFeatureText}>
-                                Approvals appear only where needed. Informational events still notify the other person without creating fake pending work.
-                            </Text>
-                        </View>
-                    </View>
+                    <LinearGradient colors={['#111A3B', '#212B60']} style={styles.webStatementPanel}>
+                        <Text style={styles.webStatementLabel}>WHY IT FEELS DIFFERENT</Text>
+                        <Text style={styles.webStatementTitle}>Less fintech dashboard. More polished personal utility.</Text>
+                        <Text style={styles.webStatementCopy}>
+                            Buddy Balance keeps the visual softness of the mobile app while adding sharper chrome,
+                            typography, and motion on the web. The result feels a little 2000s product-site, but still current.
+                        </Text>
+                    </LinearGradient>
 
-                    <View style={styles.webFeatureCard}>
-                        <View style={styles.webFeatureIcon}>
-                            <UsersRound size={22} color="#16A34A" />
+                    <PublicCard
+                        title="What the product emphasizes"
+                        description="Instead of only showing totals, the interface foregrounds context: who acted, what changed, whether it needs approval, and whether the current state is neutral, owed, or owed-to-you."
+                    >
+                        <View style={styles.signalGrid}>
+                            <SignalChip label="Zero balance is neutral" />
+                            <SignalChip label="Header shows Premium" />
+                            <SignalChip label="Contacts can add record" />
+                            <SignalChip label="Admin stays separate" />
+                            <SignalChip label="Biometric lock ready" />
+                            <SignalChip label="CSV exports for Premium" />
                         </View>
-                        <View style={styles.webFeatureCopy}>
-                            <Text style={styles.webFeatureTitle}>Contact-centered workflow</Text>
-                            <Text style={styles.webFeatureText}>
-                                Expand a contact to inspect history, edit details, and create a new shared record from the same place.
-                            </Text>
+                    </PublicCard>
+                </View>
+
+                <View style={styles.webSpread}>
+                    <LinearGradient colors={['rgba(255,255,255,0.94)', 'rgba(255,255,255,0.72)']} style={styles.webSpreadPanel}>
+                        <Text style={styles.webSectionEyebrow}>INSIDE THE APP</Text>
+                        <Text style={styles.webSectionTitle}>Three core moments the site should sell immediately.</Text>
+                        <View style={styles.webJourneyList}>
+                            <JourneyRow
+                                icon={<Sparkles size={16} color="#5B63FF" />}
+                                title="Open balance with honest state"
+                                copy="If the relationship is settled, the product treats it as neutral instead of nudging users toward a false green or red story."
+                            />
+                            <JourneyRow
+                                icon={<UsersRound size={16} color="#16A34A" />}
+                                title="Contacts become action surfaces"
+                                copy="Expand a person, review history, edit details, and create a record from the same place without re-selecting the contact."
+                            />
+                            <JourneyRow
+                                icon={<FolderClock size={16} color="#F59E0B" />}
+                                title="Notifications separate signal from work"
+                                copy="Approvals only appear when approval is required. Informational updates still land as visible events."
+                            />
                         </View>
+                    </LinearGradient>
+
+                    <View style={styles.webStatColumn}>
+                        <LinearGradient colors={['#DDE4FF', '#EEF2FF']} style={styles.webStatBlock}>
+                            <Text style={styles.webStatNumber}>11</Text>
+                            <Text style={styles.webStatCaption}>shared records visible in the mock home snapshot</Text>
+                        </LinearGradient>
+
+                        <LinearGradient colors={['#FFF0D1', '#FFF7EA']} style={styles.webStatBlock}>
+                            <Text style={styles.webStatNumber}>2</Text>
+                            <Text style={styles.webStatCaption}>public legal pages that anchor store-submission links</Text>
+                        </LinearGradient>
+
+                        <LinearGradient colors={['#DCFCE7', '#F0FDF4']} style={styles.webStatBlock}>
+                            <Text style={styles.webStatNumber}>1</Text>
+                            <Text style={styles.webStatCaption}>language system across mobile, support, and policy pages</Text>
+                        </LinearGradient>
                     </View>
                 </View>
             </PublicSiteLayout>
@@ -146,6 +196,43 @@ function FeatureItem({ icon, text }: { icon: React.ReactNode, text: string }) {
             </View>
             <Text style={styles.featureText}>{text}</Text>
         </LinearGradient>
+    );
+}
+
+function FeatureBullet({ icon, text }: { icon: React.ReactNode; text: string }) {
+    return (
+        <View style={styles.webFeatureBullet}>
+            <View style={styles.webFeatureBulletIcon}>{icon}</View>
+            <Text style={styles.webFeatureBulletText}>{text}</Text>
+        </View>
+    );
+}
+
+function SignalChip({ label }: { label: string }) {
+    return (
+        <View style={styles.signalChipPill}>
+            <Text style={styles.signalChipLabel}>{label}</Text>
+        </View>
+    );
+}
+
+function JourneyRow({
+    icon,
+    title,
+    copy,
+}: {
+    icon: React.ReactNode;
+    title: string;
+    copy: string;
+}) {
+    return (
+        <View style={styles.journeyRow}>
+            <View style={styles.journeyIcon}>{icon}</View>
+            <View style={styles.journeyCopy}>
+                <Text style={styles.journeyTitle}>{title}</Text>
+                <Text style={styles.journeyText}>{copy}</Text>
+            </View>
+        </View>
     );
 }
 
@@ -241,45 +328,172 @@ const styles = StyleSheet.create({
         color: '#475569',
         fontSize: 12,
     },
-    webGrid: {
+    webRibbon: {
+        paddingHorizontal: 18,
+        paddingVertical: 12,
+        borderRadius: 999,
+        backgroundColor: 'rgba(15,23,42,0.9)',
+        alignSelf: 'flex-start',
+    },
+    webRibbonText: {
+        color: '#DDE4FF',
+        fontFamily: 'SpaceMono',
+        fontSize: 11,
+        letterSpacing: 1.4,
+    },
+    webMagazineGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 16,
+        gap: 18,
     },
-    webHighlights: {
-        gap: 16,
+    webFeatureList: {
+        marginTop: 16,
+        gap: 12,
     },
-    webFeatureCard: {
+    webFeatureBullet: {
         flexDirection: 'row',
         alignItems: 'flex-start',
-        gap: 16,
-        padding: 22,
-        borderRadius: 24,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
+        gap: 12,
     },
-    webFeatureIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 16,
+    webFeatureBulletIcon: {
+        width: 34,
+        height: 34,
+        borderRadius: 12,
         backgroundColor: '#EEF2FF',
         alignItems: 'center',
         justifyContent: 'center',
     },
-    webFeatureCopy: {
+    webFeatureBulletText: {
         flex: 1,
-        backgroundColor: 'transparent',
+        fontSize: 14,
+        lineHeight: 22,
+        color: '#334155',
     },
-    webFeatureTitle: {
-        fontSize: 18,
+    webStatementPanel: {
+        flex: 1,
+        minWidth: 280,
+        borderRadius: 28,
+        padding: 24,
+        shadowColor: '#111827',
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.18,
+        shadowRadius: 30,
+        elevation: 12,
+    },
+    webStatementLabel: {
+        color: '#A5B4FC',
+        fontFamily: 'SpaceMono',
+        fontSize: 11,
+        letterSpacing: 1.6,
+    },
+    webStatementTitle: {
+        marginTop: 14,
+        color: '#FFFFFF',
+        fontSize: 30,
+        lineHeight: 34,
         fontWeight: '900',
-        color: '#0F172A',
-        marginBottom: 6,
     },
-    webFeatureText: {
+    webStatementCopy: {
+        marginTop: 14,
+        color: '#CBD5E1',
         fontSize: 15,
-        lineHeight: 24,
+        lineHeight: 25,
+    },
+    signalGrid: {
+        marginTop: 16,
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+    },
+    signalChipPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 999,
+        backgroundColor: '#EEF2FF',
+    },
+    signalChipLabel: {
+        color: '#4F46E5',
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    webSpread: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 18,
+    },
+    webSpreadPanel: {
+        flex: 1,
+        minWidth: 320,
+        borderRadius: 30,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.72)',
+    },
+    webSectionEyebrow: {
+        color: '#5B63FF',
+        fontFamily: 'SpaceMono',
+        fontSize: 11,
+        letterSpacing: 1.8,
+    },
+    webSectionTitle: {
+        marginTop: 12,
+        color: '#0F172A',
+        fontSize: 32,
+        lineHeight: 36,
+        fontWeight: '900',
+        maxWidth: 640,
+    },
+    webJourneyList: {
+        marginTop: 20,
+        gap: 16,
+    },
+    journeyRow: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: 14,
+    },
+    journeyIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 14,
+        backgroundColor: '#EEF2FF',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    journeyCopy: {
+        flex: 1,
+    },
+    journeyTitle: {
+        color: '#0F172A',
+        fontSize: 16,
+        fontWeight: '800',
+    },
+    journeyText: {
+        marginTop: 6,
         color: '#475569',
+        fontSize: 14,
+        lineHeight: 22,
+    },
+    webStatColumn: {
+        width: 260,
+        maxWidth: '100%',
+        gap: 18,
+    },
+    webStatBlock: {
+        borderRadius: 26,
+        padding: 20,
+        minHeight: 160,
+        justifyContent: 'space-between',
+    },
+    webStatNumber: {
+        color: '#0F172A',
+        fontSize: 56,
+        lineHeight: 56,
+        fontWeight: '900',
+    },
+    webStatCaption: {
+        color: '#475569',
+        fontSize: 14,
+        lineHeight: 22,
     },
 });
