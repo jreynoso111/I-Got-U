@@ -58,11 +58,16 @@ export function PublicSiteLayout({
   const pathname = usePathname() || '/';
   const { width } = useWindowDimensions();
   const compact = width < 960;
+  const tablet = width < 820;
+  const mobile = width < 560;
+  const contentPadding = mobile ? 14 : 18;
+  const heroTitleSize = mobile ? 34 : compact ? 42 : 54;
+  const heroTitleLineHeight = mobile ? 38 : compact ? 46 : 58;
 
   return (
     <ScrollView
       style={styles.page}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding, paddingVertical: mobile ? 16 : 22 }]}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.backgroundLayer}>
@@ -73,29 +78,34 @@ export function PublicSiteLayout({
       </View>
 
       <View style={styles.shell}>
-        <LinearGradient colors={['rgba(255,255,255,0.88)', 'rgba(255,255,255,0.62)']} style={styles.headerChrome}>
+        <LinearGradient
+          colors={['rgba(255,255,255,0.88)', 'rgba(255,255,255,0.62)']}
+          style={[styles.headerChrome, mobile && styles.headerChromeMobile]}
+        >
           <Link href="/" style={styles.brandLink}>
             <View style={styles.brandWrap}>
-              <BrandLogo size="md" />
+              <BrandLogo size={mobile ? 'sm' : 'md'} showWordmark={false} />
               <View style={styles.brandMeta}>
-                <Text style={styles.brandKicker}>Buddy Balance</Text>
-                {!compact ? (
+                <Text style={[styles.brandTitle, mobile && styles.brandTitleMobile]}>Buddy Balance</Text>
+                {!tablet ? (
                   <Text style={styles.brandSubcopy}>Shared tracking for people who actually know each other.</Text>
                 ) : null}
               </View>
             </View>
           </Link>
 
-          <View style={[styles.nav, compact && styles.navCompact]}>
+          <View style={[styles.nav, compact && styles.navCompact, mobile && styles.navMobile]}>
             {NAV_ITEMS.map((item) => {
               const active = isActivePath(pathname, item.path);
               return (
                 <Link
                   key={item.path}
                   href={item.href}
-                  style={[styles.navLink, active ? styles.navLinkActive : null]}
+                  style={[styles.navLink, mobile && styles.navLinkMobile, active ? styles.navLinkActive : null]}
                 >
-                  <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{item.label}</Text>
+                  <Text style={[styles.navLabel, mobile && styles.navLabelMobile, active ? styles.navLabelActive : null]}>
+                    {item.label}
+                  </Text>
                 </Link>
               );
             })}
@@ -119,17 +129,26 @@ export function PublicSiteLayout({
             </View>
 
             {eyebrow ? <Text style={styles.eyebrow}>{eyebrow}</Text> : null}
-            <Text style={[styles.title, compact && styles.titleCompact]}>{title}</Text>
-            <Text style={styles.description}>{description}</Text>
+            <Text
+              style={[
+                styles.title,
+                compact && styles.titleCompact,
+                { fontSize: heroTitleSize, lineHeight: heroTitleLineHeight },
+              ]}
+            >
+              {title}
+            </Text>
+            <Text style={[styles.description, mobile && styles.descriptionMobile]}>{description}</Text>
 
             {actions?.length ? (
-              <View style={styles.actions}>
+              <View style={[styles.actions, mobile && styles.actionsMobile]}>
                 {actions.map((action) => (
                   <Link
                     key={`${action.href}:${action.label}`}
                     href={action.href}
                     style={[
                       styles.actionButton,
+                      mobile && styles.actionButtonMobile,
                       action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
                     ]}
                   >
@@ -147,13 +166,17 @@ export function PublicSiteLayout({
             ) : null}
           </LinearGradient>
 
-          {heroVisual ? <View style={[styles.heroVisual, compact && styles.heroVisualCompact]}>{heroVisual}</View> : null}
+          {heroVisual ? (
+            <View style={[styles.heroVisual, compact && styles.heroVisualCompact, mobile && styles.heroVisualMobile]}>
+              {heroVisual}
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.body}>{children}</View>
 
-        <LinearGradient colors={['rgba(15,23,42,0.96)', 'rgba(30,41,59,0.92)']} style={styles.footerShell}>
-          <View style={styles.footerRow}>
+        <LinearGradient colors={['rgba(15,23,42,0.96)', 'rgba(30,41,59,0.92)']} style={[styles.footerShell, mobile && styles.footerShellMobile]}>
+          <View style={[styles.footerRow, mobile && styles.footerRowMobile]}>
             <View style={styles.footerStamp}>
               <Text style={styles.footerStampText}>MOBILE FIRST</Text>
             </View>
@@ -256,6 +279,11 @@ const styles = StyleSheet.create({
     shadowRadius: 34,
     elevation: 12,
   },
+  headerChromeMobile: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderRadius: 24,
+  },
   brandLink: {
     flexShrink: 1,
   },
@@ -267,6 +295,14 @@ const styles = StyleSheet.create({
   brandMeta: {
     gap: 2,
     maxWidth: 360,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  brandTitleMobile: {
+    fontSize: 18,
   },
   brandKicker: {
     fontSize: 12,
@@ -288,6 +324,9 @@ const styles = StyleSheet.create({
   navCompact: {
     justifyContent: 'flex-start',
   },
+  navMobile: {
+    gap: 8,
+  },
   navLink: {
     minHeight: 42,
     paddingHorizontal: 15,
@@ -299,6 +338,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  navLinkMobile: {
+    minHeight: 36,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+  },
   navLinkActive: {
     backgroundColor: '#101A3A',
     borderColor: '#101A3A',
@@ -307,6 +351,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1E293B',
     fontWeight: '800',
+  },
+  navLabelMobile: {
+    fontSize: 12,
   },
   navLabelActive: {
     color: '#F8FAFC',
@@ -387,11 +434,19 @@ const styles = StyleSheet.create({
     color: '#475569',
     maxWidth: 700,
   },
+  descriptionMobile: {
+    fontSize: 16,
+    lineHeight: 26,
+    marginTop: 14,
+  },
   actions: {
     marginTop: 28,
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+  },
+  actionsMobile: {
+    gap: 10,
   },
   actionButton: {
     minHeight: 52,
@@ -400,6 +455,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButtonMobile: {
+    minHeight: 46,
+    paddingHorizontal: 14,
+    flexGrow: 1,
   },
   actionPrimary: {
     backgroundColor: '#5B63FF',
@@ -431,6 +491,9 @@ const styles = StyleSheet.create({
   },
   heroVisualCompact: {
     width: '100%',
+  },
+  heroVisualMobile: {
+    marginTop: -2,
   },
   body: {
     gap: 18,
@@ -483,12 +546,19 @@ const styles = StyleSheet.create({
     padding: 22,
     gap: 14,
   },
+  footerShellMobile: {
+    padding: 18,
+  },
   footerRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 14,
+  },
+  footerRowMobile: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
   footerStamp: {
     paddingHorizontal: 12,

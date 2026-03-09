@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Bell, CirclePlus, Crown, Shield, UserRoundPlus } from 'lucide-react-native';
 
@@ -11,6 +11,9 @@ type AppShowcaseProps = {
 };
 
 export function AppShowcase({ compact = false }: AppShowcaseProps) {
+  const { width } = useWindowDimensions();
+  const medium = compact || width < 980;
+  const mobile = width < 560;
   const primaryFloat = useRef(new Animated.Value(0)).current;
   const secondaryFloat = useRef(new Animated.Value(0)).current;
 
@@ -69,8 +72,8 @@ export function AppShowcase({ compact = false }: AppShowcaseProps) {
   });
 
   return (
-    <View style={[styles.stage, compact && styles.stageCompact]}>
-      <View style={styles.backdropPlate}>
+    <View style={[styles.stage, medium && styles.stageCompact, mobile && styles.stageMobile]}>
+      <View style={[styles.backdropPlate, medium && styles.backdropPlateCompact, mobile && styles.backdropPlateMobile]}>
         <Text style={styles.stageLabel}>LIVE PRODUCT PREVIEW</Text>
         <Text style={styles.stageCopy}>
           The web shows the same visual language as the mobile app: clear balances, friend actions, and a premium
@@ -81,8 +84,10 @@ export function AppShowcase({ compact = false }: AppShowcaseProps) {
       <Animated.View
         style={[
           styles.primaryPhoneWrap,
+          medium && styles.primaryPhoneWrapCompact,
+          mobile && styles.primaryPhoneWrapMobile,
           {
-            transform: [{ translateY: primaryShift }],
+            transform: [{ translateY: primaryShift }, { scale: mobile ? 0.82 : medium ? 0.9 : 1 }],
           },
         ]}
       >
@@ -92,8 +97,14 @@ export function AppShowcase({ compact = false }: AppShowcaseProps) {
       <Animated.View
         style={[
           styles.secondaryPhoneWrap,
+          medium && styles.secondaryPhoneWrapCompact,
+          mobile && styles.secondaryPhoneWrapMobile,
           {
-            transform: [{ translateY: secondaryShift }, { rotate: '-7deg' }],
+            transform: [
+              { translateY: secondaryShift },
+              { rotate: mobile ? '-4deg' : '-7deg' },
+              { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
+            ],
           },
         ]}
       >
@@ -103,8 +114,14 @@ export function AppShowcase({ compact = false }: AppShowcaseProps) {
       <Animated.View
         style={[
           styles.tertiaryPhoneWrap,
+          medium && styles.tertiaryPhoneWrapCompact,
+          mobile && styles.tertiaryPhoneWrapMobile,
           {
-            transform: [{ translateY: secondaryShift }, { rotate: '8deg' }],
+            transform: [
+              { translateY: secondaryShift },
+              { rotate: mobile ? '5deg' : '8deg' },
+              { scale: mobile ? 0.7 : medium ? 0.82 : 1 },
+            ],
           },
         ]}
       >
@@ -322,6 +339,10 @@ const styles = StyleSheet.create({
   stageCompact: {
     minHeight: 460,
   },
+  stageMobile: {
+    minHeight: 360,
+    paddingTop: 8,
+  },
   backdropPlate: {
     position: 'absolute',
     top: 44,
@@ -335,6 +356,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 30,
     elevation: 12,
+  },
+  backdropPlateCompact: {
+    top: 24,
+    left: 22,
+    right: 22,
+  },
+  backdropPlateMobile: {
+    position: 'relative',
+    top: 0,
+    left: 0,
+    right: 0,
+    padding: 18,
+    marginBottom: 16,
   },
   stageLabel: {
     color: '#A5B4FC',
@@ -352,17 +386,39 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     zIndex: 4,
   },
+  primaryPhoneWrapCompact: {
+    marginTop: 12,
+  },
+  primaryPhoneWrapMobile: {
+    marginTop: 0,
+  },
   secondaryPhoneWrap: {
     position: 'absolute',
     left: 0,
     bottom: 28,
     zIndex: 2,
   },
+  secondaryPhoneWrapCompact: {
+    left: 10,
+    bottom: 8,
+  },
+  secondaryPhoneWrapMobile: {
+    left: -8,
+    bottom: -4,
+  },
   tertiaryPhoneWrap: {
     position: 'absolute',
     right: 0,
     bottom: 8,
     zIndex: 1,
+  },
+  tertiaryPhoneWrapCompact: {
+    right: 10,
+    bottom: -8,
+  },
+  tertiaryPhoneWrapMobile: {
+    right: -10,
+    bottom: -16,
   },
   phoneShell: {
     width: 255,
