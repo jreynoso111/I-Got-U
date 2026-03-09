@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, usePathname, type Href } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { BrandLogo } from '@/components/BrandLogo';
@@ -50,20 +50,20 @@ export function PublicSiteLayout({
     >
       <View style={styles.shell}>
         <View style={styles.header}>
-          <Link href="/" asChild>
-            <Pressable style={styles.brandLink}>
-              <BrandLogo size="md" />
-            </Pressable>
+          <Link href="/" style={styles.brandLink}>
+            <BrandLogo size="md" />
           </Link>
 
           <View style={styles.nav}>
             {NAV_ITEMS.map((item) => {
               const active = isActivePath(pathname, item.path);
               return (
-                <Link key={item.path} href={item.href} asChild>
-                  <Pressable style={[styles.navLink, active && styles.navLinkActive]}>
-                    <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
-                  </Pressable>
+                <Link
+                  key={item.path}
+                  href={item.href}
+                  style={[styles.navLink, active ? styles.navLinkActive : null]}
+                >
+                  <Text style={[styles.navLabel, active ? styles.navLabelActive : null]}>{item.label}</Text>
                 </Link>
               );
             })}
@@ -78,22 +78,22 @@ export function PublicSiteLayout({
           {actions?.length ? (
             <View style={styles.actions}>
               {actions.map((action) => (
-                <Link key={`${action.href}:${action.label}`} href={action.href} asChild>
-                  <Pressable
+                <Link
+                  key={`${action.href}:${action.label}`}
+                  href={action.href}
+                  style={[
+                    styles.actionButton,
+                    action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
+                  ]}
+                >
+                  <Text
                     style={[
-                      styles.actionButton,
-                      action.variant === 'secondary' ? styles.actionSecondary : styles.actionPrimary,
+                      styles.actionLabel,
+                      action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
                     ]}
                   >
-                    <Text
-                      style={[
-                        styles.actionLabel,
-                        action.variant === 'secondary' ? styles.actionSecondaryLabel : styles.actionPrimaryLabel,
-                      ]}
-                    >
-                      {action.label}
-                    </Text>
-                  </Pressable>
+                    {action.label}
+                  </Text>
                 </Link>
               ))}
             </View>
