@@ -11,20 +11,20 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-        <title>Buddy Balance | Shared Balance Tracking</title>
+        <title>Body Balance | Shared Balance Tracking</title>
         <meta name="theme-color" content="#6366F1" />
         <meta
           name="description"
-          content="Buddy Balance helps friends, families, and trusted contacts track shared balances, payments, and lending history with clarity."
+          content="Body Balance helps friends, families, and trusted contacts track shared balances, payments, and lending history with clarity."
         />
-        <meta property="og:title" content="Buddy Balance" />
+        <meta property="og:title" content="Body Balance" />
         <meta
           property="og:description"
           content="Shared balance tracking for friends, families, and trusted contacts."
         />
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="Buddy Balance" />
-        <meta name="apple-mobile-web-app-title" content="Buddy Balance" />
+        <meta property="og:site_name" content="Body Balance" />
+        <meta name="apple-mobile-web-app-title" content="Body Balance" />
 
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
