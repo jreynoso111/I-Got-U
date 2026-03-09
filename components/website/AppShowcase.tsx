@@ -166,7 +166,7 @@ function HomeScreen() {
   return (
     <View style={styles.screenBody}>
       <ScreenHeader title="Home" pill="PREMIUM" />
-      <Text style={styles.heroName}>Hola, Joe!</Text>
+      <Text style={styles.heroName}>Hi, Joe!</Text>
       <Text style={styles.heroSubline}>Focus on what needs attention first.</Text>
 
       <View style={styles.inlineAction}>
@@ -179,13 +179,13 @@ function HomeScreen() {
           <Text style={styles.balanceTagText}>YOU LENT MORE</Text>
         </View>
         <Text style={styles.balanceLabel}>OPEN BALANCE</Text>
-        <Text style={styles.balanceValue}>+$36,550</Text>
-        <Text style={styles.balanceCopy}>Right now, friends owe you more than you owe them.</Text>
+        <Text style={styles.balanceValue}>+$3,650</Text>
+        <Text style={styles.balanceCopy}>Friends owe you more than you owe them.</Text>
 
         <View style={styles.balanceSplit}>
           <View style={styles.balanceStatCard}>
             <Text style={styles.balanceStatLabel}>THEY OWE YOU</Text>
-            <Text style={styles.balanceStatValue}>$36,550</Text>
+            <Text style={styles.balanceStatValue}>$3,650</Text>
           </View>
           <View style={styles.balanceStatCard}>
             <Text style={styles.balanceStatLabel}>YOU OWE</Text>
@@ -216,22 +216,22 @@ function ContactsScreen() {
       </View>
 
       <ContactCard
-        name="George"
-        status="+$500"
+        name="Mia Chen"
+        status="+$240"
         subline="Due in 24 days"
         detail="Open record • Payment tracked"
       />
       <ContactCard
-        name="QA Android"
+        name="Diego Ruiz"
         status="Friend linked"
-        subline="Shared account contact"
+        subline="Shared account"
         detail="Events sync both sides"
       />
       <ContactCard
-        name="Sonia"
+        name="Nina Park"
         status="Settled"
         subline="Balance at zero"
-        detail="Neutral state • No color bias"
+        detail="Neutral state"
       />
     </View>
   );
@@ -484,16 +484,16 @@ const styles = StyleSheet.create({
     fontSize: 10,
   },
   heroName: {
-    fontSize: 32,
-    lineHeight: 34,
+    fontSize: 28,
+    lineHeight: 30,
     fontWeight: '900',
     color: '#0F172A',
   },
   heroSubline: {
     marginTop: 6,
     color: '#64748B',
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
   },
   inlineAction: {
     marginTop: 16,
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
   },
   inlineActionText: {
     color: '#5B63FF',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '800',
   },
   balancePanel: {
@@ -539,16 +539,16 @@ const styles = StyleSheet.create({
   },
   balanceValue: {
     marginTop: 6,
-    fontSize: 42,
-    lineHeight: 42,
+    fontSize: 34,
+    lineHeight: 34,
     fontWeight: '900',
     color: '#0F172A',
   },
   balanceCopy: {
     marginTop: 8,
     color: '#4C6257',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 11,
+    lineHeight: 16,
   },
   balanceSplit: {
     marginTop: 14,
@@ -569,7 +569,7 @@ const styles = StyleSheet.create({
   balanceStatValue: {
     marginTop: 6,
     color: '#0F172A',
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '900',
   },
   queueRow: {
@@ -592,7 +592,7 @@ const styles = StyleSheet.create({
   },
   queueMiniValue: {
     color: '#0F172A',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '900',
   },
   queueMiniValueHighlight: {
@@ -601,8 +601,8 @@ const styles = StyleSheet.create({
   queueMiniLabel: {
     marginTop: 8,
     color: '#64748B',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10,
+    lineHeight: 13,
   },
   queueMiniLabelHighlight: {
     color: '#4F46E5',
@@ -653,23 +653,23 @@ const styles = StyleSheet.create({
   },
   contactName: {
     color: '#0F172A',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '800',
   },
   contactStatus: {
     color: '#10B981',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   contactSubline: {
     marginTop: 8,
     color: '#475569',
-    fontSize: 13,
+    fontSize: 11,
   },
   contactDetail: {
     marginTop: 6,
     color: '#94A3B8',
-    fontSize: 12,
+    fontSize: 10,
   },
   premiumHero: {
     borderRadius: 24,
@@ -689,15 +689,15 @@ const styles = StyleSheet.create({
   premiumTitle: {
     marginTop: 12,
     color: '#7C5200',
-    fontSize: 26,
-    lineHeight: 28,
+    fontSize: 24,
+    lineHeight: 26,
     fontWeight: '900',
   },
   premiumText: {
     marginTop: 10,
     color: '#8A6A18',
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 11,
+    lineHeight: 16,
   },
   settingsRow: {
     padding: 14,
@@ -723,13 +723,13 @@ const styles = StyleSheet.create({
   },
   settingsTitle: {
     color: '#0F172A',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
   },
   settingsSubline: {
     marginTop: 4,
     color: '#64748B',
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 10,
+    lineHeight: 14,
   },
 });
