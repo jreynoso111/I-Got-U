@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View as RNView } from 'react-native';
 import { Link, Stack, useRouter } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   ChevronRight,
@@ -10,8 +11,6 @@ import {
   Shield,
   Users,
 } from 'lucide-react-native';
-import { useAuthStore } from '@/store/authStore';
-import { supabase } from '@/services/supabase';
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { PublicContactForm } from '@/components/support/PublicContactForm';
 import { PublicCard, PublicSiteLayout } from '@/components/website/PublicSiteLayout';
@@ -29,6 +28,12 @@ const QUICK_GUIDES: QuickGuideItem[] = [
     label: 'FAQ',
     sub: 'Updated answers for the current product behavior',
     path: '/faq',
+  },
+  {
+    icon: FileText,
+    label: 'Contact support',
+    sub: 'Account issues, launch questions, and where to send the right request',
+    path: '/contact',
   },
   {
     icon: Bell,
@@ -56,46 +61,35 @@ const QUICK_GUIDES: QuickGuideItem[] = [
   },
 ];
 
+const SUPPORT_DESTINATIONS = [
+  {
+    href: '/faq' as const,
+    eyebrow: 'ANSWERS',
+    title: 'FAQ',
+    body: 'Short, product-facing explanations for balances, shared records, notifications, contacts, and Premium behavior.',
+  },
+  {
+    href: '/contact' as const,
+    eyebrow: 'CONTACT',
+    title: 'Contact support',
+    body: 'The right place for account-specific issues, launch questions, and guidance on what should be handled in-app.',
+  },
+  {
+    href: '/privacy' as const,
+    eyebrow: 'POLICY',
+    title: 'Privacy',
+    body: 'How Buddy Balance handles account data, shared history, and the information that becomes visible across linked activity.',
+  },
+  {
+    href: '/terms' as const,
+    eyebrow: 'LEGAL',
+    title: 'Terms',
+    body: 'The usage rules, product limits, and responsibilities around a ledger app that does not move money itself.',
+  },
+] as const;
+
 export default function HelpSupportScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  const [subject, setSubject] = useState('');
-  const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
-
-  const submitSupportMessage = async () => {
-    if (!user?.id) {
-      Alert.alert('Sign in required', 'You need to be signed in to contact support.');
-      return;
-    }
-
-    const trimmedMessage = message.trim();
-    if (!trimmedMessage) {
-      Alert.alert('Message required', 'Write a short message so support knows what you need.');
-      return;
-    }
-
-    setSending(true);
-    const { error } = await supabase.from('support_messages').insert([
-      {
-        user_id: user.id,
-        channel: 'in_app',
-        subject: subject.trim() || null,
-        message: trimmedMessage,
-        status: 'open',
-      },
-    ]);
-    setSending(false);
-
-    if (error) {
-      Alert.alert('Could not send', error.message);
-      return;
-    }
-
-    setSubject('');
-    setMessage('');
-    Alert.alert('Message sent', 'Your support message was saved for admin review.');
-  };
 
   if (Platform.OS === 'web') {
     return (
@@ -145,33 +139,24 @@ export default function HelpSupportScreen() {
 
         <PublicContactForm />
 
-        {user?.id ? (
-          <Card style={styles.contactCard}>
-            <Text style={styles.contactTitle}>Send an in-app support message</Text>
-            <Text style={styles.contactText}>
-              Include what happened, what account or contact was involved, and what result you expected.
-            </Text>
-            <TextInput
-              value={subject}
-              onChangeText={setSubject}
-              placeholder="Subject (optional)"
-              placeholderTextColor="#94A3B8"
-              style={styles.input}
-            />
-            <TextInput
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Describe what happened, what account or contact was involved, and what you expected..."
-              placeholderTextColor="#94A3B8"
-              style={[styles.input, styles.textarea]}
-              multiline
-              textAlignVertical="top"
-            />
-            <TouchableOpacity style={styles.sendButton} onPress={() => void submitSupportMessage()} disabled={sending}>
-              <Text style={styles.sendButtonText}>{sending ? 'Sending...' : 'Send to support'}</Text>
-            </TouchableOpacity>
-          </Card>
-        ) : null}
+        <RNView style={styles.supportDestinationGrid}>
+          {SUPPORT_DESTINATIONS.map((item) => (
+            <Link key={item.href} href={item.href} style={styles.supportDestinationLink}>
+              <LinearGradient colors={['rgba(255,255,255,0.96)', 'rgba(255,255,255,0.74)']} style={styles.supportDestinationCard}>
+                <Text style={styles.supportDestinationEyebrow}>{item.eyebrow}</Text>
+                <Text style={styles.supportDestinationTitle}>{item.title}</Text>
+                <Text style={styles.supportDestinationBody}>{item.body}</Text>
+              </LinearGradient>
+            </Link>
+          ))}
+        </RNView>
+
+        <SupportMessageCard
+          title="Send a tracked support message"
+          description="Use this when the issue depends on your account, a linked contact, a shared record, or a notification you actually received."
+          signedOutTitle="Tracked support starts after sign-in"
+          signedOutDescription="Public pages explain the product, but account-specific support should stay attached to the right user history."
+        />
       </PublicSiteLayout>
     );
   }
@@ -210,32 +195,10 @@ export default function HelpSupportScreen() {
           ))}
         </Card>
 
-        <Card style={styles.contactCard}>
-          <Text style={styles.contactTitle}>Contact support</Text>
-          <Text style={styles.contactText}>
-            Use this form to report account issues, record mismatches, confirmation problems, or general product
-            questions. The message is stored in-app for administrator follow-up.
-          </Text>
-          <TextInput
-            value={subject}
-            onChangeText={setSubject}
-            placeholder="Subject (optional)"
-            placeholderTextColor="#94A3B8"
-            style={styles.input}
-          />
-          <TextInput
-            value={message}
-            onChangeText={setMessage}
-            placeholder="Describe what happened, what account or contact was involved, and what you expected..."
-            placeholderTextColor="#94A3B8"
-            style={[styles.input, styles.textarea]}
-            multiline
-            textAlignVertical="top"
-          />
-          <TouchableOpacity style={styles.sendButton} onPress={() => void submitSupportMessage()} disabled={sending}>
-            <Text style={styles.sendButtonText}>{sending ? 'Sending...' : 'Send to support'}</Text>
-          </TouchableOpacity>
-        </Card>
+        <SupportMessageCard
+          title="Contact support"
+          description="Use this form to report account issues, record mismatches, confirmation problems, or general product questions. The message is stored in-app for administrator follow-up."
+        />
 
         <AppLegalFooter style={styles.footer} />
       </ScrollView>
@@ -282,9 +245,21 @@ const styles = StyleSheet.create({
     padding: 0,
     overflow: 'hidden',
   },
-  contactCard: {
+  webSupportPanel: {
+    padding: 22,
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.72)',
+  },
+  webSupportLabel: {
+    color: '#5B63FF',
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
+    letterSpacing: 1.6,
+  },
+  webSupportGrid: {
     marginTop: 16,
-    padding: 18,
+    gap: 14,
   },
   webGuideGrid: {
     gap: 16,
@@ -326,37 +301,53 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     marginBottom: 6,
   },
-  contactText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#64748B',
-    marginBottom: 14,
+  supportDestinationLink: {
+    width: '100%',
+    maxWidth: 370,
+    flexGrow: 1,
   },
-  input: {
+  supportDestinationCard: {
+    minHeight: 210,
+    padding: 22,
+    borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    backgroundColor: '#F8FAFC',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
+    borderColor: 'rgba(255,255,255,0.72)',
+  },
+  supportDestinationEyebrow: {
+    color: '#5B63FF',
+    fontFamily: 'SpaceMono',
+    fontSize: 11,
+    letterSpacing: 1.5,
+  },
+  supportDestinationTitle: {
+    marginTop: 12,
+    fontSize: 24,
+    lineHeight: 30,
+    fontWeight: '900',
     color: '#0F172A',
-    marginBottom: 12,
   },
-  textarea: {
-    minHeight: 120,
+  supportDestinationBody: {
+    marginTop: 10,
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
   },
-  sendButton: {
-    minHeight: 48,
-    borderRadius: 14,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
+  webSupportItem: {
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(148,163,184,0.18)',
   },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
+  webSupportTitle: {
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  webSupportBody: {
+    marginTop: 8,
+    fontSize: 15,
+    lineHeight: 24,
+    color: '#475569',
   },
   item: {
     flexDirection: 'row',
