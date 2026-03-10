@@ -310,6 +310,29 @@ export default function AccountDashboardScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
+      <RNView style={styles.splitGrid}>
+        <Card style={styles.panelCard}>
+          <Text style={styles.panelTitle}>Balance snapshot</Text>
+          <RNView style={styles.balanceRow}>
+            <RNView style={styles.balanceMetric}>
+              <RNView style={[styles.balanceIcon, styles.balanceIconGreen]}>
+                <ArrowUpRight size={16} color="#047857" />
+              </RNView>
+              <Text style={styles.balanceLabel}>They owe you</Text>
+              <Text style={styles.balanceValue}>{formatCurrency(stats.lent)}</Text>
+            </RNView>
+            <RNView style={styles.balanceMetric}>
+              <RNView style={[styles.balanceIcon, styles.balanceIconRed]}>
+                <ArrowDownLeft size={16} color="#B91C1C" />
+              </RNView>
+              <Text style={styles.balanceLabel}>You owe</Text>
+              <Text style={styles.balanceValue}>{formatCurrency(stats.borrowed)}</Text>
+            </RNView>
+          </RNView>
+        </Card>
+
+      </RNView>
+
       <RNView style={styles.statsGrid}>
         <Card style={styles.statCard}>
           <RNView style={styles.statTopRow}>
@@ -389,29 +412,6 @@ export default function AccountDashboardScreen() {
           />
         </RNView>
       </Card>
-
-      <RNView style={styles.splitGrid}>
-        <Card style={styles.panelCard}>
-          <Text style={styles.panelTitle}>Balance snapshot</Text>
-          <RNView style={styles.balanceRow}>
-            <RNView style={styles.balanceMetric}>
-              <RNView style={[styles.balanceIcon, styles.balanceIconGreen]}>
-                <ArrowUpRight size={16} color="#047857" />
-              </RNView>
-              <Text style={styles.balanceLabel}>They owe you</Text>
-              <Text style={styles.balanceValue}>{formatCurrency(stats.lent)}</Text>
-            </RNView>
-            <RNView style={styles.balanceMetric}>
-              <RNView style={[styles.balanceIcon, styles.balanceIconRed]}>
-                <ArrowDownLeft size={16} color="#B91C1C" />
-              </RNView>
-              <Text style={styles.balanceLabel}>You owe</Text>
-              <Text style={styles.balanceValue}>{formatCurrency(stats.borrowed)}</Text>
-            </RNView>
-          </RNView>
-        </Card>
-
-      </RNView>
 
       <Card style={styles.panelCard}>
         <RNView style={styles.recentHeader}>

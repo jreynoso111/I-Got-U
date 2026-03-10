@@ -11,10 +11,14 @@ import { DEFAULT_USER_PREFERENCES, getOrCreateUserPreferences } from '@/services
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfileAvatarPublicUrl, isMissingAvatarUrlColumn } from '@/services/profileAvatar';
 import { getPlanLabel, normalizePlanTier } from '@/services/subscriptionPlan';
-import { getDeviceLanguage } from '@/constants/i18n';
+import { getDeviceLanguage, normalizeLanguage, SUPPORTED_LANGUAGES, type AppLanguage } from '@/constants/i18n';
+import { CURRENCIES } from '@/constants/Currencies';
+import { updateMyProfileDefaults } from '@/services/profileService';
 import { WebAccountLayout } from '@/components/website/WebAccountLayout';
 
 const LAST_PROTECTED_PATH_KEY = 'last_protected_path';
+const isMissingDefaultLanguageColumn = (message?: string) =>
+    String(message || '').toLowerCase().includes('default_language');
 
 export default function SettingsScreen() {
     const { user, role, planTier, initialized, setSession, setUser, setRole, setPlanTier, setLanguage } = useAuthStore();
@@ -24,6 +28,16 @@ export default function SettingsScreen() {
     const [avatarUrl, setAvatarUrl] = React.useState<string | null>(null);
     const [refreshing, setRefreshing] = React.useState(false);
     const [signingOut, setSigningOut] = React.useState(false);
+    const [currencyDefault, setCurrencyDefault] = React.useState('USD');
+    const [defaultLanguage, setDefaultLanguage] = React.useState<AppLanguage>(getDeviceLanguage());
+    const [savingPreferences, setSavingPreferences] = React.useState(false);
+    const [savedPreferenceSnapshot, setSavedPreferenceSnapshot] = React.useState<{
+        currencyDefault: string;
+        defaultLanguage: AppLanguage;
+    }>({
+        currencyDefault: 'USD',
+        defaultLanguage: getDeviceLanguage(),
+    });
     const normalizedRole = (role || '').toLowerCase().trim();
     const hasAdminAccess = normalizedRole === 'admin' || normalizedRole === 'administrator';
 
@@ -55,14 +69,23 @@ export default function SettingsScreen() {
 
         let { data, error } = await supabase
             .from('profiles')
-            .select('full_name, avatar_url, plan_tier, premium_referral_expires_at')
+            .select('full_name, avatar_url, plan_tier, premium_referral_expires_at, currency_default, default_language')
             .eq('id', user.id)
             .maybeSingle();
 
-        if (error && isMissingAvatarUrlColumn(error.message)) {
+        if (error && (isMissingAvatarUrlColumn(error.message) || isMissingDefaultLanguageColumn(error.message))) {
             const fallback = await supabase
                 .from('profiles')
-                .select('full_name, plan_tier, premium_referral_expires_at')
+                .select(
+                    [
+                        'full_name',
+                        'plan_tier',
+                        'premium_referral_expires_at',
+                        'currency_default',
+                        ...(isMissingAvatarUrlColumn(error.message) ? [] : ['avatar_url']),
+                        ...(isMissingDefaultLanguageColumn(error.message) ? [] : ['default_language']),
+                    ].join(', ')
+                )
                 .eq('id', user.id)
                 .maybeSingle();
             data = fallback.data as any;
@@ -77,6 +100,15 @@ export default function SettingsScreen() {
         setProfileName(data?.full_name || '');
         setAvatarUrl(getProfileAvatarPublicUrl((data as any)?.avatar_url || null));
         setPlanTier(normalizePlanTier((data as any)?.plan_tier, (data as any)?.premium_referral_expires_at));
+        const nextCurrencyDefault = String((data as any)?.currency_default || 'USD').toUpperCase();
+        const nextDefaultLanguage = normalizeLanguage((data as any)?.default_language, getDeviceLanguage());
+        setCurrencyDefault(nextCurrencyDefault);
+        setDefaultLanguage(nextDefaultLanguage);
+        setSavedPreferenceSnapshot((current) => ({
+            ...current,
+            currencyDefault: nextCurrencyDefault,
+            defaultLanguage: nextDefaultLanguage,
+        }));
     };
 
     const handleSignOut = async () => {
@@ -134,6 +166,40 @@ export default function SettingsScreen() {
             await Promise.all([loadPreferences(), loadProfileSummary()]);
         } finally {
             setRefreshing(false);
+        }
+    };
+
+    const preferencesDirty =
+        currencyDefault !== savedPreferenceSnapshot.currencyDefault ||
+        defaultLanguage !== savedPreferenceSnapshot.defaultLanguage;
+
+    const handleSaveWebPreferences = async () => {
+        if (!user?.id || savingPreferences) return;
+        setSavingPreferences(true);
+
+        try {
+            const profileResult = await updateMyProfileDefaults(user.id, {
+                currency_default: currencyDefault,
+                default_language: defaultLanguage,
+                updated_at: new Date().toISOString(),
+            });
+
+            setLanguage(defaultLanguage);
+            setSavedPreferenceSnapshot({
+                currencyDefault,
+                defaultLanguage,
+            });
+
+            Alert.alert(
+                'Preferences saved',
+                profileResult.languageSavedWithFallback
+                    ? 'Account preferences updated. Run the latest Supabase migration to persist: Default Language.'
+                    : 'Account preferences updated.'
+            );
+        } catch (error: any) {
+            Alert.alert('Error', error?.message || 'Could not update account preferences.');
+        } finally {
+            setSavingPreferences(false);
         }
     };
 
@@ -227,6 +293,61 @@ export default function SettingsScreen() {
                         )}
                         <TouchableOpacity style={styles.webSecondaryButton} onPress={handleSignOut} disabled={signingOut}>
                             <Text style={styles.webSecondaryButtonText}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
+                        </TouchableOpacity>
+                    </Card>
+                </View>
+
+                <View style={styles.webGrid}>
+                    <Card style={styles.webPreferenceCard}>
+                        <Text style={styles.webCardTitle}>Preferences</Text>
+                        <Text style={styles.webPreferenceText}>
+                            Change the default currency and language for this account without replacing the other account actions.
+                        </Text>
+
+                        <Text style={styles.webPreferenceLabel}>Default currency</Text>
+                        <RNView style={styles.webChipRow}>
+                            {CURRENCIES.map((currency) => {
+                                const active = currencyDefault === currency.code;
+                                return (
+                                    <TouchableOpacity
+                                        key={currency.code}
+                                        style={[styles.webChip, active && styles.webChipActive]}
+                                        onPress={() => setCurrencyDefault(currency.code)}
+                                    >
+                                        <Text style={[styles.webChipText, active && styles.webChipTextActive]}>
+                                            {currency.code}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </RNView>
+
+                        <Text style={styles.webPreferenceLabel}>Default language</Text>
+                        <RNView style={styles.webChipRow}>
+                            {SUPPORTED_LANGUAGES.map((language) => {
+                                const active = defaultLanguage === language.code;
+                                return (
+                                    <TouchableOpacity
+                                        key={language.code}
+                                        style={[styles.webChip, active && styles.webChipActive]}
+                                        onPress={() => setDefaultLanguage(language.code)}
+                                    >
+                                        <Text style={[styles.webChipText, active && styles.webChipTextActive]}>
+                                            {language.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </RNView>
+
+                        <TouchableOpacity
+                            style={[styles.webPrimaryButton, (!preferencesDirty || savingPreferences) && styles.webPrimaryButtonDisabled]}
+                            onPress={() => void handleSaveWebPreferences()}
+                            disabled={!preferencesDirty || savingPreferences}
+                        >
+                            <Text style={styles.webPrimaryButtonText}>
+                                {savingPreferences ? 'Saving preferences...' : preferencesDirty ? 'Save preferences' : 'Preferences saved'}
+                            </Text>
                         </TouchableOpacity>
                     </Card>
                 </View>
@@ -493,6 +614,53 @@ const styles = StyleSheet.create({
         minWidth: 280,
         padding: 22,
     },
+    webPreferenceCard: {
+        flex: 1.4,
+        minWidth: 360,
+        padding: 22,
+    },
+    webPreferenceText: {
+        fontSize: 14,
+        lineHeight: 22,
+        color: '#475569',
+        marginBottom: 16,
+    },
+    webPreferenceLabel: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#0F172A',
+        textTransform: 'uppercase',
+        letterSpacing: 0.4,
+        marginBottom: 10,
+    },
+    webChipRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 10,
+        marginBottom: 18,
+        backgroundColor: 'transparent',
+    },
+    webChip: {
+        minHeight: 40,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+        backgroundColor: '#FFFFFF',
+    },
+    webChipActive: {
+        backgroundColor: '#0F172A',
+        borderColor: '#0F172A',
+    },
+    webChipText: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#334155',
+    },
+    webChipTextActive: {
+        color: '#FFFFFF',
+    },
     webStatusLine: {
         fontSize: 14,
         lineHeight: 22,
@@ -507,6 +675,9 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         marginBottom: 10,
         paddingHorizontal: 16,
+    },
+    webPrimaryButtonDisabled: {
+        opacity: 0.55,
     },
     webPrimaryButtonText: {
         fontSize: 14,

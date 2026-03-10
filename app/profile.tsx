@@ -279,8 +279,8 @@ export default function ProfileScreen() {
     return (
       <WebAccountLayout
         eyebrow="Profile"
-        title="Edit identity, defaults, and invite settings."
-        description="These changes update the same Buddy Balance profile record used by the mobile app."
+        title="Edit identity and invite settings."
+        description="Profile stays focused on who you are and how referrals work. Currency, language, and workspace defaults now live under Account preferences."
       >
         <Card style={styles.webProfileCard}>
           <RNView style={styles.webAvatarRow}>
@@ -307,6 +307,9 @@ export default function ProfileScreen() {
         <View style={styles.webGrid}>
           <Card style={styles.webFormCard}>
             <Text style={styles.webCardTitle}>Identity</Text>
+            <Text style={styles.webCardBody}>
+              Keep this section focused on your personal details. Account preferences handle currency, language, and web workspace defaults.
+            </Text>
             <Text style={styles.label}>Full Name</Text>
             <TextInput
               style={styles.input}
@@ -335,24 +338,6 @@ export default function ProfileScreen() {
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
-            />
-
-            <Text style={styles.label}>Default Currency</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="USD"
-              placeholderTextColor="#94A3B8"
-              value={currencyDefault}
-              onChangeText={setCurrencyDefault}
-            />
-
-            <Text style={styles.label}>Default Language</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="en"
-              placeholderTextColor="#94A3B8"
-              value={defaultLanguage}
-              onChangeText={(value) => setDefaultLanguage(normalizeLanguage(value, getDeviceLanguage()))}
             />
 
             <TouchableOpacity style={styles.webPrimaryButton} onPress={() => void handleSave()} disabled={loading || initializing}>

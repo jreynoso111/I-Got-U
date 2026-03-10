@@ -51,6 +51,16 @@ export type UpdateUserProfileResult = {
   avatarSavedWithFallback: boolean;
 };
 
+export type UpdateProfileDefaultsPayload = {
+  currency_default: string;
+  default_language: AppLanguage;
+  updated_at: string;
+};
+
+export type UpdateProfileDefaultsResult = {
+  languageSavedWithFallback: boolean;
+};
+
 export async function fetchProfileMeta(userId: string): Promise<ProfileMeta> {
   let { data, error } = await supabase
     .from('profiles')
@@ -190,5 +200,32 @@ export async function updateMyProfile(
   return {
     languageSavedWithFallback,
     avatarSavedWithFallback,
+  };
+}
+
+export async function updateMyProfileDefaults(
+  userId: string,
+  patch: UpdateProfileDefaultsPayload
+): Promise<UpdateProfileDefaultsResult> {
+  let languageSavedWithFallback = false;
+
+  let { error } = await supabase.from('profiles').update(patch).eq('id', userId);
+
+  if (error && isMissingDefaultLanguageColumn(error.message)) {
+    languageSavedWithFallback = true;
+
+    const fallbackPatch = { ...patch };
+    delete (fallbackPatch as Partial<UpdateProfileDefaultsPayload>).default_language;
+
+    const fallback = await supabase.from('profiles').update(fallbackPatch).eq('id', userId);
+    error = fallback.error as any;
+  }
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return {
+    languageSavedWithFallback,
   };
 }

@@ -47,6 +47,7 @@ export const useAuth = () => {
     const segments = useSegments();
     const profileSyncInFlightRef = useRef(false);
     const profileSyncQueuedRef = useRef(false);
+    const rewardHydrationInFlightRef = useRef(false);
 
     const resetLocalAuthState = async () => {
         await AsyncStorage.removeItem(LAST_PROTECTED_PATH_KEY);
@@ -97,6 +98,31 @@ export const useAuth = () => {
         }
     };
 
+    const hydratePendingReferralRewardSafely = async () => {
+        if (rewardHydrationInFlightRef.current) return;
+
+        rewardHydrationInFlightRef.current = true;
+        let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+        try {
+            await Promise.race([
+                hydratePendingReferralReward(),
+                new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        reject(new Error('referral reward hydration timed out'));
+                    }, 4000);
+                }),
+            ]);
+        } catch (error: any) {
+            console.warn('referral reward hydration skipped:', error?.message || error);
+        } finally {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+            }
+            rewardHydrationInFlightRef.current = false;
+        }
+    };
+
     const syncProfileState = async (userId: string) => {
         if (profileSyncInFlightRef.current) {
             profileSyncQueuedRef.current = true;
@@ -113,7 +139,7 @@ export const useAuth = () => {
                 setRole(normalizedRole);
                 setPlanTier(planTier);
                 setLanguage(language);
-                await hydratePendingReferralReward();
+                void hydratePendingReferralRewardSafely();
             } while (profileSyncQueuedRef.current);
         } finally {
             profileSyncInFlightRef.current = false;

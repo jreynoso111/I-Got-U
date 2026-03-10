@@ -113,30 +113,35 @@ export default function SubscriptionScreen() {
       return <Redirect href="/(auth)/login" />;
     }
 
-    return (
-      <WebAccountLayout
-        eyebrow="Membership"
-        title={planTier === 'premium' ? 'Premium is active on this account.' : 'Free plan with a clear upgrade path.'}
-        description="Membership on web reads the same plan state as the app. Premium, referrals, limits, and manual admin upgrades all show here."
-      >
-        <RNView style={styles.webGrid}>
-          <Card style={styles.webPanel}>
-            <Text style={styles.webPanelTitle}>Current plan</Text>
-            <Text style={styles.webPlanValue}>{planTitle}</Text>
-            <Text style={styles.webBody}>
-              Buddy Balance Pro removes the friend and active record limits. Android checkout will be handled directly by Google Play when store billing is fully wired.
-            </Text>
-            {planTier !== 'premium' ? (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={[styles.webPrimaryButton, purchasePending && styles.buttonDisabled]}
-                onPress={() => void handlePurchase()}
-                disabled={purchasePending}
-              >
-                {purchasePending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.webPrimaryButtonText}>Try Premium</Text>}
-              </TouchableOpacity>
-            ) : null}
-          </Card>
+      return (
+        <WebAccountLayout
+          eyebrow="Membership"
+          title={planTier === 'premium' ? 'Premium is active on this account.' : 'Upgrade this account to Premium from Membership.'}
+          description="Membership is where web shows the live plan, the upgrade action, referrals, and any admin-granted Premium state for this account."
+        >
+          <RNView style={styles.webGrid}>
+            <Card style={styles.webPanel}>
+              <Text style={styles.webPanelTitle}>{planTier === 'premium' ? 'Current plan' : 'Upgrade plan'}</Text>
+              <Text style={styles.webPlanValue}>{planTitle}</Text>
+              <Text style={styles.webBody}>
+                {planTier === 'premium'
+                  ? 'Premium is already active on this account, so exports and unlimited record limits are ready to use.'
+                  : 'Use this Membership section to move the account from Free to Premium. Checkout still depends on the billing flow available for the device.'}
+              </Text>
+              {planTier !== 'premium' ? (
+                <TouchableOpacity
+                  activeOpacity={0.9}
+                  style={[styles.webPrimaryButton, purchasePending && styles.buttonDisabled]}
+                  onPress={() => void handlePurchase()}
+                  disabled={purchasePending}
+                >
+                  {purchasePending ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.webPrimaryButtonText}>Buy Premium</Text>}
+                </TouchableOpacity>
+              ) : null}
+              <Text style={styles.webMembershipNote}>
+                {unavailableReason || 'Premium checkout is available on this device.'}
+              </Text>
+            </Card>
 
           <Card style={styles.webPanel}>
             <Text style={styles.webPanelTitle}>What Premium unlocks</Text>
@@ -517,6 +522,12 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#475569',
     marginBottom: 16,
+  },
+  webMembershipNote: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
   },
   webBenefitRow: {
     flexDirection: 'row',

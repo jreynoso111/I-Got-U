@@ -33,6 +33,9 @@ interface AdminPlanUser {
   updated_at: string | null;
 }
 
+type StatsLoadMode = 'full' | 'fallback';
+const ADMIN_RPC_TIMEOUT_MS = 4000;
+
 function formatMoney(value?: number | null) {
   return `$${Math.round(Number(value || 0)).toLocaleString()}`;
 }
@@ -40,6 +43,10 @@ function formatMoney(value?: number | null) {
 function formatPercent(numerator: number, denominator: number) {
   if (!denominator) return '0%';
   return `${Math.round((numerator / denominator) * 100)}%`;
+}
+
+function uniqueCount(values: Array<string | null | undefined>) {
+  return new Set(values.filter((value): value is string => Boolean(value))).size;
 }
 
 export default function AdminDashboardIndex() {
@@ -52,28 +59,205 @@ export default function AdminDashboardIndex() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [statsLoadMode, setStatsLoadMode] = useState<StatsLoadMode>('full');
 
   useEffect(() => {
     void fetchStats();
   }, []);
 
+  const withTimeout = async <T,>(promise: PromiseLike<T>, label: string, timeoutMs = 8000): Promise<T> => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    try {
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`${label} timed out.`));
+        }, timeoutMs);
+      });
+
+      return await Promise.race([promise, timeoutPromise]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  };
+
+  const buildFallbackStats = async (): Promise<DashboardStats> => {
+    const now = new Date();
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [
+      totalUsersResult,
+      premiumUsersResult,
+      freeUsersResult,
+      totalLoansResult,
+      activeLoansResult,
+      openMoneyLoansResult,
+      recordsCreated7dResult,
+      paymentsLogged7dResult,
+      pendingConfirmationsResult,
+      pendingFriendRequestsResult,
+      pushEnabledUsersResult,
+      profileCreates7dResult,
+      profileCreates30dResult,
+      auditLogs7dResult,
+      auditLogs30dResult,
+      premiumChanges7dResult,
+    ] = await Promise.all([
+      withTimeout(
+        supabase.from('profiles').select('id', { count: 'exact', head: true }),
+        'profiles total count'
+      ),
+      withTimeout(
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('plan_tier', 'premium'),
+        'profiles premium count'
+      ),
+      withTimeout(
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).not('plan_tier', 'eq', 'premium'),
+        'profiles free count'
+      ),
+      withTimeout(
+        supabase.from('loans').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+        'loans total count'
+      ),
+      withTimeout(
+        supabase.from('loans').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['active', 'partial', 'overdue']),
+        'loans active count'
+      ),
+      withTimeout(
+        supabase.from('loans').select('amount').is('deleted_at', null).eq('category', 'money').in('status', ['active', 'partial', 'overdue']),
+        'loans open money'
+      ),
+      withTimeout(
+        supabase.from('loans').select('id', { count: 'exact', head: true }).is('deleted_at', null).gte('created_at', sevenDaysAgo),
+        'loans created 7d'
+      ),
+      withTimeout(
+        supabase.from('payments').select('id', { count: 'exact', head: true }).gte('payment_date', sevenDaysAgo),
+        'payments 7d'
+      ),
+      withTimeout(
+        supabase.from('p2p_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        'pending confirmations'
+      ),
+      withTimeout(
+        supabase.from('p2p_requests').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('type', 'friend_request'),
+        'pending friend requests'
+      ),
+      withTimeout(
+        supabase.from('user_preferences').select('user_id', { count: 'exact', head: true }).eq('push_enabled', true),
+        'push enabled count'
+      ),
+      withTimeout(
+        supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('table_name', 'profiles').eq('operation', 'INSERT').gte('created_at', sevenDaysAgo),
+        'profile creates 7d'
+      ),
+      withTimeout(
+        supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('table_name', 'profiles').eq('operation', 'INSERT').gte('created_at', thirtyDaysAgo),
+        'profile creates 30d'
+      ),
+      withTimeout(
+        supabase.from('audit_logs').select('actor_user_id').gte('created_at', sevenDaysAgo),
+        'audit logs 7d'
+      ),
+      withTimeout(
+        supabase.from('audit_logs').select('actor_user_id').gte('created_at', thirtyDaysAgo),
+        'audit logs 30d'
+      ),
+      withTimeout(
+        supabase.from('audit_logs').select('old_row, new_row').eq('table_name', 'profiles').eq('operation', 'UPDATE').gte('created_at', sevenDaysAgo),
+        'premium upgrades 7d'
+      ),
+    ]);
+
+    const queryErrors = [
+      totalUsersResult.error,
+      premiumUsersResult.error,
+      freeUsersResult.error,
+      totalLoansResult.error,
+      activeLoansResult.error,
+      openMoneyLoansResult.error,
+      recordsCreated7dResult.error,
+      paymentsLogged7dResult.error,
+      pendingConfirmationsResult.error,
+      pendingFriendRequestsResult.error,
+      pushEnabledUsersResult.error,
+      profileCreates7dResult.error,
+      profileCreates30dResult.error,
+      auditLogs7dResult.error,
+      auditLogs30dResult.error,
+      premiumChanges7dResult.error,
+    ].filter(Boolean);
+
+    if (queryErrors.length > 0) {
+      throw queryErrors[0];
+    }
+
+    const moneyInTransit = ((openMoneyLoansResult.data || []) as Array<{ amount: number | null }>).reduce(
+      (sum, row) => sum + Number(row.amount || 0),
+      0
+    );
+
+    const premiumNew7d = ((premiumChanges7dResult.data || []) as Array<{ old_row?: any; new_row?: any }>).filter((entry) => {
+      const previousPlan = String(entry.old_row?.plan_tier || 'free').toLowerCase();
+      const nextPlan = String(entry.new_row?.plan_tier || 'free').toLowerCase();
+      return previousPlan !== 'premium' && nextPlan === 'premium';
+    }).length;
+
+    return {
+      total_users: totalUsersResult.count || 0,
+      new_users_7d: profileCreates7dResult.count || 0,
+      new_users_30d: profileCreates30dResult.count || 0,
+      active_users_7d: uniqueCount(((auditLogs7dResult.data || []) as Array<{ actor_user_id?: string | null }>).map((entry) => entry.actor_user_id)),
+      active_users_30d: uniqueCount(((auditLogs30dResult.data || []) as Array<{ actor_user_id?: string | null }>).map((entry) => entry.actor_user_id)),
+      premium_users: premiumUsersResult.count || 0,
+      free_users: freeUsersResult.count || 0,
+      premium_new_7d: premiumNew7d,
+      total_loans: totalLoansResult.count || 0,
+      active_loans: activeLoansResult.count || 0,
+      money_in_transit: moneyInTransit,
+      records_created_7d: recordsCreated7dResult.count || 0,
+      payments_logged_7d: paymentsLogged7dResult.count || 0,
+      pending_confirmations: pendingConfirmationsResult.count || 0,
+      pending_friend_requests: pendingFriendRequestsResult.count || 0,
+      push_enabled_users: pushEnabledUsersResult.count || 0,
+    };
+  };
+
   const fetchStats = async () => {
     setLoading(true);
     setError('');
+    setStatsLoadMode('full');
     try {
-      const [statsResult, usersResult] = await Promise.all([
-        supabase.rpc('get_admin_dashboard_stats'),
+      const usersPromise = withTimeout(
         supabase
           .from('profiles')
           .select('id, full_name, email, plan_tier, updated_at')
           .order('updated_at', { ascending: false })
           .limit(40),
-      ]);
+        'admin users list'
+      );
+      const fallbackStatsPromise = buildFallbackStats();
 
-      if (statsResult.error) throw statsResult.error;
+      let nextStats: DashboardStats | null = null;
+      try {
+        const statsResult = await withTimeout(
+          supabase.rpc('get_admin_dashboard_stats'),
+          'admin dashboard stats',
+          ADMIN_RPC_TIMEOUT_MS
+        );
+
+        if (statsResult.error) throw statsResult.error;
+        nextStats = statsResult.data as DashboardStats;
+      } catch (statsError: any) {
+        console.warn('admin dashboard stats RPC failed, using fallback:', statsError?.message || statsError);
+        nextStats = await fallbackStatsPromise;
+        setStatsLoadMode('fallback');
+      }
+
+      const usersResult = await usersPromise;
       if (usersResult.error) throw usersResult.error;
 
-      setStats(statsResult.data as DashboardStats);
+      setStats(nextStats);
       setPlanUsers((usersResult.data || []) as AdminPlanUser[]);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch admin stats');
@@ -189,6 +373,13 @@ export default function AdminDashboardIndex() {
 
         <Text style={styles.title}>Admin Analytics</Text>
         <Text style={styles.subtitle}>Growth, premium conversion, user activity, and operational load from the live backend.</Text>
+        {statsLoadMode === 'fallback' ? (
+          <Card style={styles.noticeCard}>
+            <Text style={styles.noticeText}>
+              Some aggregate metrics are using a slower fallback because the main admin stats query did not respond in time.
+            </Text>
+          </Card>
+        ) : null}
 
         <View style={styles.heroGrid}>
           <Card style={styles.heroCard}>
@@ -555,6 +746,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     color: '#64748B',
+  },
+  noticeCard: {
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    backgroundColor: '#FFFBEB',
+  },
+  noticeText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#92400E',
   },
   heroGrid: {
     flexDirection: 'row',
