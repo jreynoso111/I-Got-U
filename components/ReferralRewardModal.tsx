@@ -84,8 +84,8 @@ export function ReferralRewardModal() {
   }, [confettiPieces, confettiProgress, fadeValue, scaleValue, visible]);
 
   const dismiss = async () => {
-    await markPremiumCelebrationSeen();
-    await markLatestReferralRewardSeen();
+    await markPremiumCelebrationSeen().catch(() => null);
+    await markLatestReferralRewardSeen().catch(() => null);
     clearReferralReward();
   };
 

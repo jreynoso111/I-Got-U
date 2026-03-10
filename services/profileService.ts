@@ -1,11 +1,9 @@
 import { User } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
 
 import { AppLanguage, getDeviceLanguage, normalizeLanguage } from '@/constants/i18n';
 import { isMissingAvatarUrlColumn } from '@/services/profileAvatar';
 import { normalizePlanTier, PlanTier } from '@/services/subscriptionPlan';
 import { supabase } from '@/services/supabase';
-import { webApiRequest } from '@/services/webApi';
 
 const isMissingDefaultLanguageColumn = (message?: string) =>
   String(message || '').toLowerCase().includes('default_language');
@@ -53,41 +51,12 @@ export type UpdateUserProfileResult = {
   avatarSavedWithFallback: boolean;
 };
 
-type WebProfileMetaResponse = {
-  role?: string | null;
-  default_language?: string | null;
-  plan_tier?: string | null;
-  premium_referral_expires_at?: string | null;
-};
-
-type WebProfileResponse = {
-  full_name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  currency_default?: string | null;
-  default_language?: string | null;
-  avatar_url?: string | null;
-  friend_code?: string | null;
-  plan_tier?: string | null;
-  premium_referral_expires_at?: string | null;
-};
-
 export async function fetchProfileMeta(userId: string): Promise<ProfileMeta> {
-  if (Platform.OS === 'web') {
-    const data = await webApiRequest<WebProfileMetaResponse>('/api/profile-meta');
-
-    return {
-      normalizedRole: normalizeRole(data.role),
-      planTier: normalizePlanTier(data.plan_tier, data.premium_referral_expires_at),
-      language: normalizeLanguage(data.default_language, getDeviceLanguage()),
-    };
-  }
-
   let { data, error } = await supabase
     .from('profiles')
     .select('role, default_language, plan_tier, premium_referral_expires_at')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (error && isMissingDefaultLanguageColumn(error.message)) {
     const fallback = await supabase
@@ -111,23 +80,6 @@ export async function fetchProfileMeta(userId: string): Promise<ProfileMeta> {
 }
 
 export async function fetchMyProfile(user: User): Promise<UserProfile> {
-  if (Platform.OS === 'web') {
-    const data = await webApiRequest<WebProfileResponse>('/api/profile');
-
-    return {
-      fullName: String(data.full_name || user.user_metadata?.full_name || '').trim(),
-      email: data.email || user.email || '',
-      phone: data.phone || '',
-      currencyDefault: data.currency_default || 'USD',
-      defaultLanguage: normalizeLanguage(data.default_language, getDeviceLanguage()),
-      avatarPath: data.avatar_url || null,
-      friendCode: String(data.friend_code || '').trim(),
-      friendCodeStatus: String(data.friend_code || '').trim() ? 'ready' : 'missing',
-      planTier: normalizePlanTier(data.plan_tier, data.premium_referral_expires_at),
-      premiumReferralExpiresAt: data.premium_referral_expires_at || null,
-    };
-  }
-
   const fullFields =
     'full_name, email, phone, currency_default, default_language, avatar_url, friend_code, plan_tier, premium_referral_expires_at';
   let { data, error } = await supabase.from('profiles').select(fullFields).eq('id', user.id).maybeSingle();
@@ -210,13 +162,6 @@ export async function updateMyProfile(
   userId: string,
   patch: UpdateUserProfilePayload
 ): Promise<UpdateUserProfileResult> {
-  if (Platform.OS === 'web') {
-    return webApiRequest<UpdateUserProfileResult>('/api/profile', {
-      method: 'PUT',
-      body: JSON.stringify(patch),
-    });
-  }
-
   let languageSavedWithFallback = false;
   let avatarSavedWithFallback = false;
 

@@ -133,7 +133,7 @@ export function PublicSiteLayout({
                   </Link>
                 );
               })}
-              <Link href={user ? '/settings' : '/(auth)/login'} asChild>
+              <Link href={user ? '/dashboard' : '/(auth)/login'} asChild>
                 <Pressable
                   style={StyleSheet.flatten([
                     styles.accountLink,
@@ -141,7 +141,7 @@ export function PublicSiteLayout({
                   ])}
                 >
                   <Text style={[styles.accountLabel, user && styles.accountLabelActive]}>
-                    {user ? 'Account' : 'Sign in'}
+                    {user ? 'Dashboard' : 'Sign in'}
                   </Text>
                 </Pressable>
               </Link>

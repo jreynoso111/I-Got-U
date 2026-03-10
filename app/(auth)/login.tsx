@@ -23,7 +23,7 @@ export default function LoginScreen() {
     const [feedback, setFeedback] = useState<{ tone: FeedbackTone; text: string } | null>(null);
     const googleEnabledForBuild = isGoogleOAuthEnabledForBuild();
     const googleUnavailableReason = getGoogleOAuthUnavailableReason();
-    const nextRoute = Platform.OS === 'web' ? '/settings' : '/(tabs)';
+    const nextRoute = Platform.OS === 'web' ? '/dashboard' : '/(tabs)';
 
     const normalizeEmail = (value: string) => value.trim().toLowerCase();
 
@@ -142,7 +142,7 @@ export default function LoginScreen() {
     };
 
     if (Platform.OS === 'web' && initialized && user) {
-        return <Redirect href="/settings" />;
+        return <Redirect href="/dashboard" />;
     }
 
     const form = (

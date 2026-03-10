@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, TouchableOpacity, Alert, View as RNView, ScrollView, Image, RefreshControl, Platform, Pressable } from 'react-native';
-import { Link, Redirect } from 'expo-router';
+import { StyleSheet, TouchableOpacity, Alert, View as RNView, ScrollView, Image, RefreshControl, Platform } from 'react-native';
+import { Redirect } from 'expo-router';
 import { Text, View, Screen, Card } from '@/components/Themed';
 import { clearPersistedAuthState, supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
@@ -147,7 +147,6 @@ export default function SettingsScreen() {
         { icon: User, label: 'Profile', sub: user?.email, onPress: () => router.push('/profile') },
         { icon: Bell, label: 'Notifications', sub: prefs.push_enabled ? 'Enabled' : 'Disabled', onPress: () => router.push('/notifications') },
         { icon: Shield, label: 'Security', sub: prefs.biometric_enabled ? 'Biometric On' : 'Biometric Off', onPress: () => router.push('/security') },
-        { icon: CircleHelp, label: 'Help & Support', sub: 'FAQ & guidance', onPress: () => router.push('/help-support') },
     ];
 
     if (planTier === 'premium') {
@@ -177,16 +176,20 @@ export default function SettingsScreen() {
 
         return (
             <WebAccountLayout
-                eyebrow="Account Center"
+                eyebrow="Account"
                 title="Manage the same Buddy Balance account you use in the app."
-                description="This web area gives you a cleaner desktop surface for profile management, membership status, security controls, notifications, exports, and support."
+                description="This web area is the desktop version of your app account: profile, membership, notifications, exports, and security."
             >
                 <View style={styles.webGrid}>
                     <Card style={styles.webSummaryCard}>
                         <RNView style={styles.webSummaryTop}>
                             <RNView style={styles.avatarLarge}>
                                 {avatarUrl ? (
-                                    <Image source={{ uri: avatarUrl }} style={styles.avatarLargeImage} />
+                                    <Image
+                                        source={{ uri: avatarUrl }}
+                                        style={styles.avatarLargeImage}
+                                        onError={() => setAvatarUrl(null)}
+                                    />
                                 ) : (
                                     <Text style={styles.avatarLargeText}>{avatarInitial}</Text>
                                 )}
@@ -194,31 +197,18 @@ export default function SettingsScreen() {
                             <RNView style={styles.webSummaryCopy}>
                                 <Text style={styles.webSummaryName}>{profileName || 'Buddy Balance account'}</Text>
                                 <Text style={styles.webSummaryEmail}>{user?.email}</Text>
-                                <Text style={styles.webSummaryMeta}>{getPlanLabel(planTier)} plan{hasAdminAccess ? ' • Admin access' : ''}</Text>
+                                {hasAdminAccess ? <Text style={styles.webSummaryMeta}>Admin access</Text> : null}
                             </RNView>
                         </RNView>
                         <Text style={styles.webSummaryText}>
-                            Use Profile to edit identity details, Membership to review Premium access, Notifications to tune alerts, and Security to control biometrics and password changes.
+                            Use the sidebar to move between profile, membership, notifications, security, and admin when available. This account page stays focused on summary and actions.
                         </Text>
-                    </Card>
-
-                    <Card style={styles.webActionCard}>
-                        <Text style={styles.webCardTitle}>Account management</Text>
-                        <RNView style={styles.webLinkStack}>
-                            <Link href="/dashboard" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Dashboard overview</Text></Pressable></Link>
-                            <Link href="/profile" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Edit profile</Text></Pressable></Link>
-                            <Link href="/subscription" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>View membership</Text></Pressable></Link>
-                            <Link href="/notifications" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Notification settings</Text></Pressable></Link>
-                            <Link href="/security" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Security settings</Text></Pressable></Link>
-                            <Link href="/help-support" asChild><Pressable style={styles.webLinkButton}><Text style={styles.webLinkText}>Support and policies</Text></Pressable></Link>
-                        </RNView>
                     </Card>
                 </View>
 
                 <View style={styles.webGrid}>
                     <Card style={styles.webStatusCard}>
                         <Text style={styles.webCardTitle}>Current status</Text>
-                        <Text style={styles.webStatusLine}>Plan: {getPlanLabel(planTier)}</Text>
                         <Text style={styles.webStatusLine}>Push alerts: {prefs.push_enabled ? 'Enabled' : 'Disabled'}</Text>
                         <Text style={styles.webStatusLine}>Biometric lock: {prefs.biometric_enabled ? 'Enabled' : 'Disabled'}</Text>
                         <Text style={styles.webStatusLine}>Marketing updates: {prefs.marketing_enabled ? 'Enabled' : 'Disabled'}</Text>
@@ -231,11 +221,9 @@ export default function SettingsScreen() {
                                 <Text style={styles.webPrimaryButtonText}>Export CSV</Text>
                             </TouchableOpacity>
                         ) : (
-                            <Link href="/subscription" asChild>
-                                <Pressable style={styles.webPrimaryButton}>
-                                    <Text style={styles.webPrimaryButtonText}>See Premium options</Text>
-                                </Pressable>
-                            </Link>
+                            <TouchableOpacity style={styles.webPrimaryButton} onPress={() => router.push('/subscription')}>
+                                <Text style={styles.webPrimaryButtonText}>See Premium options</Text>
+                            </TouchableOpacity>
                         )}
                         <TouchableOpacity style={styles.webSecondaryButton} onPress={handleSignOut} disabled={signingOut}>
                             <Text style={styles.webSecondaryButtonText}>{signingOut ? 'Signing out...' : 'Sign out'}</Text>
@@ -257,7 +245,11 @@ export default function SettingsScreen() {
                 <View style={styles.profileSection}>
                     <RNView style={styles.avatarLarge}>
                         {avatarUrl ? (
-                            <Image source={{ uri: avatarUrl }} style={styles.avatarLargeImage} />
+                            <Image
+                                source={{ uri: avatarUrl }}
+                                style={styles.avatarLargeImage}
+                                onError={() => setAvatarUrl(null)}
+                            />
                         ) : (
                             <Text style={styles.avatarLargeText}>{avatarInitial}</Text>
                         )}

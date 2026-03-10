@@ -1,5 +1,6 @@
 import React from 'react';
 import { Redirect, Stack } from 'expo-router';
+import { Platform } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { useI18n } from '@/hooks/useI18n';
 
@@ -12,7 +13,7 @@ export default function AdminLayout() {
   if (!initialized) return null;
 
   if (!hasAdminAccess) {
-    return <Redirect href="/(tabs)" />;
+    return <Redirect href={Platform.OS === 'web' ? '/dashboard' : '/(tabs)'} />;
   }
 
   return (

@@ -46,34 +46,40 @@ export default function AuthCallbackScreen() {
     let mounted = true;
 
     const run = async () => {
-      if (!initialUrl) {
-        if (!mounted) return;
-        setFailed(true);
-        setStatusText('Missing callback data. Please try again.');
-        return;
-      }
-
-      const result = await completeOAuthFromUrl(initialUrl);
-      if (!mounted) return;
-
-      if (result.status === 'success') {
-        const session = await waitForAuthSession({ timeoutMs: 5000, intervalMs: 150 });
-        if (!mounted) return;
-
-        if (!session) {
+      try {
+        if (!initialUrl) {
+          if (!mounted) return;
           setFailed(true);
-          setStatusText('Google sign in finished, but the session was not saved. Please try again.');
+          setStatusText('Missing callback data. Please try again.');
           return;
         }
 
-        setCompleted(true);
-        setStatusText('Google account linked successfully.');
-        router.replace('/(tabs)');
-        return;
-      }
+        const result = await completeOAuthFromUrl(initialUrl);
+        if (!mounted) return;
 
-      setFailed(true);
-      setStatusText(result.message || 'Google sign in failed. Please try again.');
+        if (result.status === 'success') {
+          const session = await waitForAuthSession({ timeoutMs: 5000, intervalMs: 150 });
+          if (!mounted) return;
+
+          if (!session) {
+            setFailed(true);
+            setStatusText('Google sign in finished, but the session was not saved. Please try again.');
+            return;
+          }
+
+          setCompleted(true);
+          setStatusText('Google account linked successfully.');
+          router.replace(Platform.OS === 'web' ? '/dashboard' : '/(tabs)');
+          return;
+        }
+
+        setFailed(true);
+        setStatusText(result.message || 'Google sign in failed. Please try again.');
+      } catch (error: any) {
+        if (!mounted) return;
+        setFailed(true);
+        setStatusText(error?.message || 'Google sign in failed. Please try again.');
+      }
     };
 
     void run();

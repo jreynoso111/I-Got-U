@@ -191,7 +191,11 @@ export default function NotificationsScreen() {
           />
         </Card>
         <Card style={styles.webStatusCard}>
-          <Text style={styles.webStatusText}>{loading ? 'Loading preferences...' : `Push permission: ${pushPermission}`}</Text>
+          <Text style={styles.webStatusText}>
+            {loading
+              ? 'Loading preferences...'
+              : 'These notification preferences sync with your Buddy Balance account. Browser alerts are not wired yet, but the same settings apply in the app.'}
+          </Text>
         </Card>
       </WebAccountLayout>
     );

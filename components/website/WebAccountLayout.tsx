@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { Text } from '@/components/Themed';
@@ -15,15 +15,19 @@ type AccountNavItem = {
   matches: string[];
 };
 
-const ACCOUNT_NAV: AccountNavItem[] = [
+const BASE_ACCOUNT_NAV: AccountNavItem[] = [
   { href: '/dashboard', label: 'Dashboard', matches: ['/dashboard'] },
   { href: '/settings', label: 'Account', matches: ['/settings'] },
   { href: '/profile', label: 'Profile', matches: ['/profile'] },
   { href: '/subscription', label: 'Membership', matches: ['/subscription'] },
   { href: '/notifications', label: 'Notifications', matches: ['/notifications'] },
   { href: '/security', label: 'Security', matches: ['/security'] },
-  { href: '/help-support', label: 'Support', matches: ['/help-support', '/faq', '/privacy', '/terms'] },
 ];
+const ADMIN_NAV_ITEM: AccountNavItem = {
+  href: '/admin' as Href,
+  label: 'Admin',
+  matches: ['/admin'],
+};
 
 function matchesPath(pathname: string, patterns: string[]) {
   return patterns.some((pattern) => pathname === pattern || pathname.startsWith(`${pattern}/`));
@@ -40,7 +44,7 @@ export function WebAccountLayout({
   description: string;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname() || '/settings';
+  const pathname = usePathname() || '/dashboard';
   const router = useRouter();
   const { user, role, planTier, setSession, setUser, setRole, setPlanTier, setLanguage } = useAuthStore();
   const displayName =
@@ -49,6 +53,9 @@ export function WebAccountLayout({
     'Account';
   const normalizedRole = String(role || '').toLowerCase().trim();
   const hasAdminAccess = normalizedRole === 'admin' || normalizedRole === 'administrator';
+  const accountNav: AccountNavItem[] = hasAdminAccess
+    ? [...BASE_ACCOUNT_NAV, ADMIN_NAV_ITEM]
+    : BASE_ACCOUNT_NAV;
 
   const signOut = async () => {
     await supabase.auth.signOut().catch(() => null);
@@ -66,14 +73,13 @@ export function WebAccountLayout({
       style={styles.page}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
-      stickyHeaderIndices={[0]}
     >
       <View style={styles.topbarSticky}>
         <View style={styles.shellFrame}>
           <View style={styles.topbar}>
             <View>
-              <Text style={styles.productLabel}>Buddy Balance account</Text>
-              <Text style={styles.productSubcopy}>Signed in with the same Supabase account used in the app.</Text>
+              <Text style={styles.productLabel}>Buddy Balance dashboard</Text>
+              <Text style={styles.productSubcopy}>The web workspace for the same Supabase account you use in the app.</Text>
             </View>
             <View style={styles.topbarActions}>
               <Link href="/" asChild>
@@ -104,7 +110,7 @@ export function WebAccountLayout({
             </View>
 
             <View style={styles.navCard}>
-              {ACCOUNT_NAV.map((item) => {
+              {accountNav.map((item) => {
                 const active = matchesPath(pathname, item.matches);
                 return (
                   <Link key={item.label} href={item.href} asChild>
@@ -153,6 +159,12 @@ const styles = StyleSheet.create({
     zIndex: 20,
     backgroundColor: 'rgba(246,248,255,0.94)',
     paddingBottom: 10,
+    ...(Platform.OS === 'web'
+      ? {
+          position: 'sticky' as const,
+          top: 0,
+        }
+      : null),
   },
   topbar: {
     borderRadius: 24,

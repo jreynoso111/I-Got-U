@@ -1,15 +1,294 @@
 import React from 'react';
-import { Platform, StyleSheet, TouchableOpacity, View as RNView } from 'react-native';
-import { Redirect, useRouter } from 'expo-router';
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View as RNView,
+} from 'react-native';
+import { Redirect, Stack, useFocusEffect, useRouter } from 'expo-router';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Bell,
+  Clock3,
+  Plus,
+  Sparkles,
+  UserPlus,
+  Users,
+  Wallet,
+} from 'lucide-react-native';
 
 import { Card, Screen, Text } from '@/components/Themed';
 import { WebAccountLayout } from '@/components/website/WebAccountLayout';
+import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
-import { getPlanLabel } from '@/services/subscriptionPlan';
+
+type LoanRecord = {
+  id: string;
+  amount: number | null;
+  type: 'lent' | 'borrowed';
+  status: string;
+  category: 'money' | 'item';
+  created_at: string;
+  due_date: string | null;
+  item_name: string | null;
+  currency: string | null;
+  contacts?: { name?: string | null } | null;
+  remaining_amount?: number;
+};
+
+type PaymentRecord = {
+  amount: number | null;
+  loan_id: string;
+  payment_method: 'money' | 'item' | null;
+};
+
+type DashboardStats = {
+  openBalance: number;
+  lent: number;
+  borrowed: number;
+  activeRecords: number;
+  pendingRequests: number;
+  dueSoon: number;
+};
+
+const INITIAL_STATS: DashboardStats = {
+  openBalance: 0,
+  lent: 0,
+  borrowed: 0,
+  activeRecords: 0,
+  pendingRequests: 0,
+  dueSoon: 0,
+};
+
+function getTimestamp(value?: string | null) {
+  if (!value) return 0;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCurrency(value: number, currency = 'USD') {
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD',
+      maximumFractionDigits: 2,
+    }).format(value || 0);
+  } catch {
+    return `$${(value || 0).toFixed(2)}`;
+  }
+}
+
+function getRecordValue(record: LoanRecord) {
+  if (record.category === 'item') {
+    return record.item_name || 'Item';
+  }
+
+  const baseAmount =
+    record.status === 'paid' ? Number(record.amount || 0) : Number(record.remaining_amount ?? record.amount ?? 0);
+  return formatCurrency(baseAmount, record.currency || 'USD');
+}
+
+function getDueLabel(dueDate?: string | null) {
+  if (!dueDate) return 'No due date';
+
+  const due = new Date(`${dueDate}T12:00:00`);
+  if (Number.isNaN(due.getTime())) return 'No due date';
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - now.getTime()) / 86400000);
+
+  if (diffDays < 0) return `Overdue by ${Math.abs(diffDays)} day${Math.abs(diffDays) === 1 ? '' : 's'}`;
+  if (diffDays === 0) return 'Due today';
+  if (diffDays === 1) return 'Due tomorrow';
+  return `Due in ${diffDays} days`;
+}
+
+function WorkspaceAction({
+  label,
+  description,
+  onPress,
+  tone = 'default',
+  icon,
+}: {
+  label: string;
+  description: string;
+  onPress: () => void;
+  tone?: 'default' | 'primary';
+  icon: React.ReactNode;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.actionCard, tone === 'primary' ? styles.actionCardPrimary : null]}
+      activeOpacity={0.88}
+      onPress={onPress}
+    >
+      <RNView style={[styles.actionIcon, tone === 'primary' ? styles.actionIconPrimary : null]}>{icon}</RNView>
+      <Text style={[styles.actionLabel, tone === 'primary' ? styles.actionLabelPrimary : null]}>{label}</Text>
+      <Text style={[styles.actionDescription, tone === 'primary' ? styles.actionDescriptionPrimary : null]}>
+        {description}
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 export default function AccountDashboardScreen() {
   const router = useRouter();
-  const { initialized, user, role, planTier } = useAuthStore();
+  const { initialized, user } = useAuthStore();
+  const [stats, setStats] = React.useState<DashboardStats>(INITIAL_STATS);
+  const [recentRecords, setRecentRecords] = React.useState<LoanRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const loadDashboard = React.useCallback(
+    async () => {
+      if (!user?.id) return;
+
+      setLoading(true);
+
+      try {
+        const [loansResult, paymentsResult, requestsResult] = await Promise.all([
+          supabase
+            .from('loans')
+            .select('id, amount, type, status, category, created_at, due_date, item_name, currency, contacts(name)')
+            .eq('user_id', user.id)
+            .is('deleted_at', null)
+            .order('created_at', { ascending: false }),
+          supabase
+            .from('payments')
+            .select('amount, loan_id, payment_method')
+            .eq('user_id', user.id),
+          supabase
+            .from('p2p_requests')
+            .select('*', { count: 'exact', head: true })
+            .eq('to_user_id', user.id)
+            .eq('status', 'pending'),
+        ]);
+
+        if (loansResult.error) {
+          throw loansResult.error;
+        }
+        if (paymentsResult.error) {
+          throw paymentsResult.error;
+        }
+        if (requestsResult.error) {
+          throw requestsResult.error;
+        }
+
+        const paymentTotals = new Map<string, number>();
+        (paymentsResult.data as PaymentRecord[] | null)?.forEach((payment) => {
+          if (payment.payment_method !== 'money') return;
+          const current = paymentTotals.get(payment.loan_id) || 0;
+          paymentTotals.set(payment.loan_id, current + Number(payment.amount || 0));
+        });
+
+        const enrichedLoans = ((loansResult.data || []) as LoanRecord[]).map((loan) => {
+          const paid = paymentTotals.get(loan.id) || 0;
+          const remainingAmount =
+            loan.category === 'money' ? Math.max(Number(loan.amount || 0) - paid, 0) : Number(loan.amount || 0);
+          return {
+            ...loan,
+            remaining_amount: remainingAmount,
+          };
+        });
+
+        const openLoans = enrichedLoans.filter((loan) => loan.status !== 'paid');
+        const moneyOpenLoans = openLoans.filter((loan) => loan.category === 'money');
+        const lent = moneyOpenLoans
+          .filter((loan) => loan.type === 'lent')
+          .reduce((acc, loan) => acc + Number(loan.remaining_amount || 0), 0);
+        const borrowed = moneyOpenLoans
+          .filter((loan) => loan.type === 'borrowed')
+          .reduce((acc, loan) => acc + Number(loan.remaining_amount || 0), 0);
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const nextWeek = new Date(now);
+        nextWeek.setDate(now.getDate() + 7);
+
+        const dueSoon = openLoans.filter((loan) => {
+          if (loan.status !== 'active' || !loan.due_date) return false;
+          const due = new Date(`${loan.due_date}T12:00:00`);
+          return due.getTime() >= now.getTime() && due.getTime() <= nextWeek.getTime();
+        }).length;
+
+        setStats({
+          openBalance: lent - borrowed,
+          lent,
+          borrowed,
+          activeRecords: openLoans.length,
+          pendingRequests: requestsResult.count || 0,
+          dueSoon,
+        });
+
+        setRecentRecords(
+          [...enrichedLoans]
+            .sort((a, b) => getTimestamp(b.created_at) - getTimestamp(a.created_at))
+            .slice(0, 5)
+        );
+      } catch (error: any) {
+        console.error('web dashboard load failed:', error?.message || error);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user?.id]
+  );
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadDashboard();
+    }, [loadDashboard])
+  );
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`web-dashboard:${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'loans',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'payments',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'p2p_requests',
+          filter: `to_user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadDashboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadDashboard, user?.id]);
 
   if (Platform.OS === 'web' && initialized && !user) {
     return <Redirect href="/(auth)/login" />;
@@ -23,101 +302,164 @@ export default function AccountDashboardScreen() {
     );
   }
 
-  const normalizedRole = String(role || '').toLowerCase();
-  const isAdmin = normalizedRole === 'admin' || normalizedRole === 'administrator';
-
   return (
     <WebAccountLayout
       eyebrow="Dashboard"
-      title="A single view of your account privileges and next actions."
-      description="This dashboard adapts to your plan and role, showing only the controls and shortcuts you can access."
+      title="Your Buddy Balance web workspace."
+      description="This dashboard is the online version of your app. The mobile flows stay here, and the extra desktop tools will grow from this workspace."
     >
-      <RNView style={styles.grid}>
-        <Card style={styles.panel}>
-          <Text style={styles.panelTitle}>Account status</Text>
-          <Text style={styles.panelBody}>
-            Plan: {getPlanLabel(planTier)}
-          </Text>
-          <Text style={styles.panelBody}>
-            Role: {isAdmin ? 'Administrator' : 'Standard user'}
-          </Text>
-          <Text style={styles.panelBody}>
-            Email: {user?.email || '—'}
-          </Text>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <RNView style={styles.statsGrid}>
+        <Card style={styles.statCard}>
+          <RNView style={styles.statTopRow}>
+            <RNView style={[styles.statIconWrap, styles.statIconDark]}>
+              <Wallet size={18} color="#0F172A" />
+            </RNView>
+            <Text style={styles.statEyebrow}>Open balance</Text>
+          </RNView>
+          <Text style={styles.statValue}>{formatCurrency(stats.openBalance)}</Text>
+          <Text style={styles.statMeta}>Net across your open money records</Text>
         </Card>
 
-        <Card style={styles.panel}>
-          <Text style={styles.panelTitle}>Your actions</Text>
-          <Text style={styles.panelBody}>
-            Keep your profile, notifications, and security settings aligned across the app and web.
-          </Text>
-          <RNView style={styles.actionStack}>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/profile')}>
-              <Text style={styles.primaryButtonText}>Edit profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/notifications')}>
-              <Text style={styles.secondaryButtonText}>Notification preferences</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/security')}>
-              <Text style={styles.secondaryButtonText}>Security & devices</Text>
-            </TouchableOpacity>
+        <Card style={styles.statCard}>
+          <RNView style={styles.statTopRow}>
+            <RNView style={[styles.statIconWrap, styles.statIconBlue]}>
+              <Sparkles size={18} color="#1D4ED8" />
+            </RNView>
+            <Text style={styles.statEyebrow}>Active records</Text>
           </RNView>
+          <Text style={styles.statValue}>{stats.activeRecords}</Text>
+          <Text style={styles.statMeta}>Live records still in progress</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <RNView style={styles.statTopRow}>
+            <RNView style={[styles.statIconWrap, styles.statIconAmber]}>
+              <Bell size={18} color="#B45309" />
+            </RNView>
+            <Text style={styles.statEyebrow}>Pending requests</Text>
+          </RNView>
+          <Text style={styles.statValue}>{stats.pendingRequests}</Text>
+          <Text style={styles.statMeta}>Items waiting for your confirmation</Text>
+        </Card>
+
+        <Card style={styles.statCard}>
+          <RNView style={styles.statTopRow}>
+            <RNView style={[styles.statIconWrap, styles.statIconGreen]}>
+              <Clock3 size={18} color="#047857" />
+            </RNView>
+            <Text style={styles.statEyebrow}>Due soon</Text>
+          </RNView>
+          <Text style={styles.statValue}>{stats.dueSoon}</Text>
+          <Text style={styles.statMeta}>Next 7 days</Text>
         </Card>
       </RNView>
 
-      <RNView style={styles.grid}>
-        <Card style={styles.panel}>
-          <Text style={styles.panelTitle}>Membership</Text>
-          <Text style={styles.panelBody}>
-            Review your current plan, referral status, and available Premium benefits.
-          </Text>
-          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/subscription')}>
-            <Text style={styles.secondaryButtonText}>View membership</Text>
+      <Card style={styles.panelCard}>
+        <Text style={styles.panelTitle}>Run the app from here</Text>
+        <Text style={styles.panelBody}>
+          Start the same core flows you already use on mobile. Account and admin navigation stay in the sidebar so the workspace does not repeat itself.
+        </Text>
+        <RNView style={styles.actionGrid}>
+          <WorkspaceAction
+            label="New record"
+            description="Create a new lend, borrow, or shared item record."
+            tone="primary"
+            icon={<Plus size={18} color="#FFFFFF" />}
+            onPress={() => router.push('/new-loan')}
+          />
+          <WorkspaceAction
+            label="Add friend"
+            description="Create a new contact or send a friend-linked invite."
+            icon={<UserPlus size={18} color="#4F46E5" />}
+            onPress={() => router.push('/new-contact?mode=friend')}
+          />
+          <WorkspaceAction
+            label="Requests"
+            description="Review confirmations, invites, and pending actions."
+            icon={<Bell size={18} color="#4F46E5" />}
+            onPress={() => router.push('/requests')}
+          />
+          <WorkspaceAction
+            label="Contacts"
+            description="Open the shared contact list and relationship timeline."
+            icon={<Users size={18} color="#4F46E5" />}
+            onPress={() => router.push('/(tabs)/contacts' as any)}
+          />
+        </RNView>
+      </Card>
+
+      <RNView style={styles.splitGrid}>
+        <Card style={styles.panelCard}>
+          <Text style={styles.panelTitle}>Balance snapshot</Text>
+          <RNView style={styles.balanceRow}>
+            <RNView style={styles.balanceMetric}>
+              <RNView style={[styles.balanceIcon, styles.balanceIconGreen]}>
+                <ArrowUpRight size={16} color="#047857" />
+              </RNView>
+              <Text style={styles.balanceLabel}>They owe you</Text>
+              <Text style={styles.balanceValue}>{formatCurrency(stats.lent)}</Text>
+            </RNView>
+            <RNView style={styles.balanceMetric}>
+              <RNView style={[styles.balanceIcon, styles.balanceIconRed]}>
+                <ArrowDownLeft size={16} color="#B91C1C" />
+              </RNView>
+              <Text style={styles.balanceLabel}>You owe</Text>
+              <Text style={styles.balanceValue}>{formatCurrency(stats.borrowed)}</Text>
+            </RNView>
+          </RNView>
+        </Card>
+
+      </RNView>
+
+      <Card style={styles.panelCard}>
+        <RNView style={styles.recentHeader}>
+          <Text style={styles.panelTitle}>Recent records</Text>
+          <TouchableOpacity onPress={() => void loadDashboard()}>
+            <Text style={styles.refreshText}>Refresh</Text>
           </TouchableOpacity>
-        </Card>
+        </RNView>
 
-        <Card style={styles.panel}>
-          <Text style={styles.panelTitle}>Support & policies</Text>
-          <Text style={styles.panelBody}>
-            Use the support hub for account-specific issues or review policy pages tied to store submission.
-          </Text>
-          <RNView style={styles.actionStack}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/help-support')}>
-              <Text style={styles.secondaryButtonText}>Support hub</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.ghostButton} onPress={() => router.push('/faq')}>
-              <Text style={styles.ghostButtonText}>FAQ</Text>
-            </TouchableOpacity>
+        {loading ? (
+          <RNView style={styles.loadingState}>
+            <ActivityIndicator size="small" color="#4F46E5" />
+            <Text style={styles.loadingText}>Loading your web workspace...</Text>
           </RNView>
-        </Card>
-      </RNView>
-
-      {isAdmin ? (
-        <Card style={styles.adminPanel}>
-          <Text style={styles.panelTitle}>Administrator tools</Text>
-          <Text style={styles.panelBody}>
-            You have admin privileges. Use these shortcuts to inspect records, confirmations, and user lists.
-          </Text>
-          <RNView style={styles.actionStack}>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/admin')}>
-              <Text style={styles.primaryButtonText}>Open admin dashboard</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/admin/requests')}>
-              <Text style={styles.secondaryButtonText}>Review requests</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push('/admin/users')}>
-              <Text style={styles.secondaryButtonText}>Manage users</Text>
-            </TouchableOpacity>
-          </RNView>
-        </Card>
-      ) : (
-        <Card style={styles.panel}>
-          <Text style={styles.panelTitle}>Admin access</Text>
-          <Text style={styles.panelBody}>
-            This account does not have administrator access. If you expected admin permissions, contact support.
-          </Text>
-        </Card>
-      )}
+        ) : (
+          <>
+            {recentRecords.length === 0 ? (
+              <RNView style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No records yet.</Text>
+                <Text style={styles.emptyText}>
+                  Create your first shared record here and this dashboard will start behaving like the online version of the app.
+                </Text>
+              </RNView>
+            ) : (
+              recentRecords.map((record) => (
+                <TouchableOpacity
+                  key={record.id}
+                  style={styles.recordRow}
+                  activeOpacity={0.88}
+                  onPress={() => router.push(`/loan/${record.id}`)}
+                >
+                  <RNView style={styles.recordCopy}>
+                    <Text style={styles.recordName}>{record.contacts?.name || 'Unknown contact'}</Text>
+                    <Text style={styles.recordMeta}>
+                      {record.category === 'item' ? 'Item record' : record.type === 'lent' ? 'Lent record' : 'Borrowed record'}
+                    </Text>
+                    <Text style={styles.recordSubmeta}>{getDueLabel(record.due_date)}</Text>
+                  </RNView>
+                  <RNView style={styles.recordValueBlock}>
+                    <Text style={styles.recordValue}>{getRecordValue(record)}</Text>
+                    <Text style={styles.recordStatus}>{record.status}</Text>
+                  </RNView>
+                </TouchableOpacity>
+              ))
+            )}
+          </>
+        )}
+      </Card>
     </WebAccountLayout>
   );
 }
@@ -129,24 +471,71 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#0F172A',
   },
-  grid: {
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 16,
   },
-  panel: {
+  statCard: {
     flex: 1,
-    minWidth: 260,
-    padding: 22,
+    minWidth: 220,
+    padding: 20,
   },
-  adminPanel: {
+  statTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  statIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIconDark: {
+    backgroundColor: '#E2E8F0',
+  },
+  statIconBlue: {
+    backgroundColor: '#DBEAFE',
+  },
+  statIconAmber: {
+    backgroundColor: '#FEF3C7',
+  },
+  statIconGreen: {
+    backgroundColor: '#D1FAE5',
+  },
+  statEyebrow: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#64748B',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statValue: {
+    marginTop: 14,
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  statMeta: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+  },
+  splitGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  panelCard: {
+    flex: 1,
+    minWidth: 320,
     padding: 22,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-    backgroundColor: '#EEF2FF',
   },
   panelTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
     color: '#0F172A',
   },
@@ -156,49 +545,206 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#475569',
   },
-  actionStack: {
-    marginTop: 16,
-    gap: 10,
+  actionGrid: {
+    marginTop: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
-  primaryButton: {
-    minHeight: 44,
-    borderRadius: 14,
-    backgroundColor: '#0F172A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    minHeight: 44,
-    borderRadius: 14,
+  actionCard: {
+    flex: 1,
+    minWidth: 220,
+    borderRadius: 18,
+    padding: 18,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
   },
-  secondaryButtonText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '800',
+  actionCardPrimary: {
+    backgroundColor: '#101A3A',
+    borderColor: '#101A3A',
   },
-  ghostButton: {
-    minHeight: 40,
+  actionIcon: {
+    width: 38,
+    height: 38,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    backgroundColor: '#F8FAFF',
+    backgroundColor: '#EEF2FF',
   },
-  ghostButtonText: {
-    color: '#475569',
+  actionIconPrimary: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  actionLabel: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  actionLabelPrimary: {
+    color: '#FFFFFF',
+  },
+  actionDescription: {
+    marginTop: 6,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+  },
+  actionDescriptionPrimary: {
+    color: 'rgba(255,255,255,0.82)',
+  },
+  linkStack: {
+    marginTop: 18,
+    gap: 10,
+  },
+  inlineLinkRow: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    backgroundColor: '#F8FAFC',
+  },
+  inlineLinkTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  inlineLinkMeta: {
+    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#64748B',
+  },
+  balanceRow: {
+    marginTop: 18,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  balanceMetric: {
+    flex: 1,
+    minWidth: 220,
+    borderRadius: 18,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 18,
+  },
+  balanceIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  balanceIconGreen: {
+    backgroundColor: '#D1FAE5',
+  },
+  balanceIconRed: {
+    backgroundColor: '#FEE2E2',
+  },
+  balanceLabel: {
+    marginTop: 12,
     fontSize: 13,
     fontWeight: '700',
+    color: '#64748B',
+  },
+  balanceValue: {
+    marginTop: 6,
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  adminCard: {
+    borderColor: '#C7D2FE',
+    backgroundColor: '#EEF2FF',
+  },
+  adminHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  refreshText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#4F46E5',
+  },
+  loadingState: {
+    paddingVertical: 28,
+    alignItems: 'center',
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#64748B',
+  },
+  emptyState: {
+    marginTop: 18,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 18,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  emptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#64748B',
+  },
+  recordRow: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  recordCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  recordName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  recordMeta: {
+    fontSize: 13,
+    color: '#475569',
+  },
+  recordSubmeta: {
+    fontSize: 12,
+    color: '#64748B',
+  },
+  recordValueBlock: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  recordValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+  },
+  recordStatus: {
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    color: '#6366F1',
   },
 });

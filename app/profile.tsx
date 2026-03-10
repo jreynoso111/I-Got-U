@@ -65,6 +65,8 @@ export default function ProfileScreen() {
       if (inviteSummaryResult.data) {
         setInviteSummary(inviteSummaryResult.data);
         setInviteCodeInput((current) => current || inviteSummaryResult.data?.referredByCode || '');
+      } else {
+        setInviteSummary(null);
       }
 
       avatarBase64Ref.current = null;
@@ -284,7 +286,11 @@ export default function ProfileScreen() {
           <RNView style={styles.webAvatarRow}>
             <RNView style={styles.avatarButton}>
               {avatarPreviewUrl ? (
-                <Image source={{ uri: avatarPreviewUrl }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: avatarPreviewUrl }}
+                  style={styles.avatarImage}
+                  onError={() => setAvatarPreviewUrl(null)}
+                />
               ) : (
                 <RNView style={styles.avatarFallback}>
                   <Text style={styles.avatarFallbackText}>{profileInitial}</Text>
@@ -450,7 +456,11 @@ export default function ProfileScreen() {
               disabled={loading || initializing}
             >
               {avatarPreviewUrl ? (
-                <Image source={{ uri: avatarPreviewUrl }} style={styles.avatarImage} />
+                <Image
+                  source={{ uri: avatarPreviewUrl }}
+                  style={styles.avatarImage}
+                  onError={() => setAvatarPreviewUrl(null)}
+                />
               ) : (
                 <RNView style={styles.avatarFallback}>
                   <Text style={styles.avatarFallbackText}>{profileInitial}</Text>

@@ -70,27 +70,31 @@ export const useAuth = () => {
     };
 
     const hydratePendingReferralReward = async () => {
-        const pendingPremiumCelebration = await getMyPendingPremiumCelebration();
-        if (pendingPremiumCelebration.data?.hasPending) {
+        try {
+            const pendingPremiumCelebration = await getMyPendingPremiumCelebration();
+            if (pendingPremiumCelebration.data?.hasPending) {
+                useAuthStore.getState().showReferralReward({
+                    source: pendingPremiumCelebration.data.source,
+                    rewardMonths: pendingPremiumCelebration.data.rewardMonths || 1,
+                    referralCount: pendingPremiumCelebration.data.referralCount,
+                    premiumExpiresAt: pendingPremiumCelebration.data.premiumReferralExpiresAt,
+                });
+                setPlanTier('premium');
+                return;
+            }
+
+            const { data } = await getMyInviteSummary();
+            if (!data?.hasUnseenReward) return;
             useAuthStore.getState().showReferralReward({
-                source: pendingPremiumCelebration.data.source,
-                rewardMonths: pendingPremiumCelebration.data.rewardMonths || 1,
-                referralCount: pendingPremiumCelebration.data.referralCount,
-                premiumExpiresAt: pendingPremiumCelebration.data.premiumReferralExpiresAt,
+                source: 'referral',
+                rewardMonths: 1,
+                referralCount: data.referralCount,
+                premiumExpiresAt: data.premiumReferralExpiresAt,
             });
             setPlanTier('premium');
-            return;
+        } catch (error: any) {
+            console.warn('referral reward hydration skipped:', error?.message || error);
         }
-
-        const { data } = await getMyInviteSummary();
-        if (!data?.hasUnseenReward) return;
-        useAuthStore.getState().showReferralReward({
-            source: 'referral',
-            rewardMonths: 1,
-            referralCount: data.referralCount,
-            premiumExpiresAt: data.premiumReferralExpiresAt,
-        });
-        setPlanTier('premium');
     };
 
     const syncProfileState = async (userId: string) => {
@@ -116,6 +120,14 @@ export const useAuth = () => {
         }
     };
 
+    const syncProfileStateSafely = async (userId: string) => {
+        try {
+            await syncProfileState(userId);
+        } catch (error: any) {
+            console.error('profile sync failed:', error?.message || error);
+        }
+    };
+
     useEffect(() => {
         // 1. Initial session check
         const checkSession = async () => {
@@ -135,7 +147,7 @@ export const useAuth = () => {
                 setUser(session?.user ?? null);
 
                 if (session?.user?.id) {
-                    await syncProfileState(session.user.id);
+                    await syncProfileStateSafely(session.user.id);
                 } else {
                     setRole(null);
                     setPlanTier('free');
@@ -165,7 +177,7 @@ export const useAuth = () => {
                 setUser(session?.user ?? null);
 
                 if (session?.user?.id) {
-                    await syncProfileState(session.user.id);
+                    await syncProfileStateSafely(session.user.id);
                 } else {
                     setRole(null);
                     setPlanTier('free');
@@ -187,7 +199,7 @@ export const useAuth = () => {
 
     useEffect(() => {
         if (!initialized || !session?.user?.id) return;
-        void syncProfileState(session.user.id);
+        void syncProfileStateSafely(session.user.id);
     }, [initialized, pathname, session?.user?.id]);
 
     useEffect(() => {
@@ -243,7 +255,7 @@ export const useAuth = () => {
                     filter: `id=eq.${session.user.id}`,
                 },
                 () => {
-                    void syncProfileState(session.user.id);
+                    void syncProfileStateSafely(session.user.id);
                 }
             )
             .subscribe();

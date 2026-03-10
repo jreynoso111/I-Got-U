@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AlertCircle, ArrowDownToLine, BellRing, ChevronDown, ChevronRight, ChevronUp, Crown, RefreshCcw, Search, TrendingUp, UserMinus, Users, Wallet } from 'lucide-react-native';
 import { Card, Screen } from '@/components/Themed';
@@ -175,7 +175,10 @@ export default function AdminDashboardIndex() {
         automaticallyAdjustContentInsets={false}
       >
         <View style={styles.topRow}>
-          <TouchableOpacity style={styles.backToAppButton} onPress={() => router.replace('/(tabs)' as any)}>
+          <TouchableOpacity
+            style={styles.backToAppButton}
+            onPress={() => router.replace((Platform.OS === 'web' ? '/dashboard' : '/(tabs)') as any)}
+          >
             <Text style={styles.backToAppText}>Back to app</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.refreshButton} onPress={() => { setRefreshing(true); void fetchStats(); }}>

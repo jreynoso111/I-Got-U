@@ -27,6 +27,8 @@ export default function SubscriptionScreen() {
   const [referralSummary, setReferralSummary] = React.useState<InviteSummary | null>(null);
 
   React.useEffect(() => {
+    if (!user?.id) return;
+
     let active = true;
 
     const loadReferralSummary = async () => {
@@ -40,7 +42,7 @@ export default function SubscriptionScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const handlePurchase = async () => {
     if (purchasePending) return;
