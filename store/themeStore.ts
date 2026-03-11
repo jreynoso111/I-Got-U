@@ -4,6 +4,7 @@ import { create } from 'zustand';
 export type ThemePreference = 'system' | 'light' | 'dark';
 
 const THEME_PREFERENCE_KEY = 'theme_preference';
+const DEFAULT_THEME_PREFERENCE: ThemePreference = 'light';
 
 function isThemePreference(value: string | null): value is ThemePreference {
   return value === 'system' || value === 'light' || value === 'dark';
@@ -18,7 +19,7 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  preference: 'system',
+  preference: DEFAULT_THEME_PREFERENCE,
   hydrated: false,
   hydrateThemePreference: async () => {
     if (get().hydrated) return;
@@ -26,7 +27,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     try {
       const storedPreference = await AsyncStorage.getItem(THEME_PREFERENCE_KEY);
       set({
-        preference: isThemePreference(storedPreference) ? storedPreference : 'system',
+        preference: isThemePreference(storedPreference) ? storedPreference : DEFAULT_THEME_PREFERENCE,
         hydrated: true,
       });
     } catch {
