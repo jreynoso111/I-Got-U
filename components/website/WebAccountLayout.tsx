@@ -18,6 +18,7 @@ type AccountNavItem = {
 
 const BASE_ACCOUNT_NAV: AccountNavItem[] = [
   { href: '/dashboard', label: 'Dashboard', matches: ['/dashboard'] },
+  { href: '/contacts' as Href, label: 'Contacts', matches: ['/contacts'] },
   { href: '/settings', label: 'Account', matches: ['/settings'] },
   { href: '/profile', label: 'Profile', matches: ['/profile'] },
   { href: '/subscription', label: 'Membership', matches: ['/subscription'] },
@@ -139,7 +140,7 @@ export function WebAccountLayout({
 
       <View style={styles.shellFrame}>
         <View style={[styles.main, compact && styles.mainCompact]}>
-          <View style={[styles.sidebar, compact && styles.sidebarCompact]}>
+          <View style={[styles.sidebar, !compact && styles.sidebarSticky, compact && styles.sidebarCompact]}>
             <View style={[styles.profileCard, mobile && styles.profileCardMobile]}>
               <View style={styles.avatar}>
                 <Text style={styles.avatarText}>{displayName.charAt(0).toUpperCase()}</Text>
@@ -262,6 +263,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     flexWrap: 'wrap',
+    alignItems: 'center',
   },
   topbarActionsMobile: {
     width: '100%',
@@ -338,15 +340,24 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
   },
   sidebar: {
-    width: 290,
-    gap: 14,
+    width: 320,
+    gap: 16,
+  },
+  sidebarSticky: {
+    alignSelf: 'flex-start',
+    ...(Platform.OS === 'web'
+      ? ({
+          position: 'sticky',
+          top: 104,
+        } as any)
+      : null),
   },
   sidebarCompact: {
     width: '100%',
   },
   profileCard: {
     borderRadius: 28,
-    padding: 22,
+    padding: 24,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#DDE5FF',
@@ -392,11 +403,11 @@ const styles = StyleSheet.create({
   },
   navCard: {
     borderRadius: 28,
-    padding: 10,
+    padding: 12,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    gap: 6,
+    gap: 8,
   },
   navCardMobile: {
     flexDirection: 'row',
@@ -404,10 +415,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   navLink: {
-    minHeight: 44,
+    minHeight: 50,
     borderRadius: 18,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     justifyContent: 'center',
   },
   navLinkMobile: {

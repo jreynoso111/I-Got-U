@@ -1,13 +1,14 @@
-import React, { useCallback, useState } from 'react';
-import { StyleSheet, FlatList, TouchableOpacity, View as RNView, TextInput, useWindowDimensions, Modal, ScrollView, RefreshControl } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { StyleSheet, FlatList, TouchableOpacity, View as RNView, TextInput, useWindowDimensions, Modal, ScrollView, RefreshControl, Platform } from 'react-native';
 import { Text, View, Screen, Card } from '@/components/Themed';
 import { AppLegalFooter } from '@/components/AppLegalFooter';
 import { supabase } from '@/services/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { UserPlus, Search, ChevronDown, ChevronUp, X, Link2, Plus } from 'lucide-react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { Redirect, useRouter, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getCurrencySymbol } from '@/constants/Currencies';
+import { WebAccountLayout } from '@/components/website/WebAccountLayout';
 
 type ContactLoan = {
   id: string;
@@ -64,6 +65,8 @@ type ContactItem = {
   } | null;
 };
 
+type ContactSortOption = 'account_desc' | 'account_asc' | 'name_asc' | 'name_desc';
+
 function getLinkedContactName(contact: Pick<ContactItem, 'name' | 'link_status' | 'target_profile'>) {
   if (contact.link_status === 'accepted') {
     const profileName = String(contact.target_profile?.full_name || contact.target_profile?.email || '').trim();
@@ -96,6 +99,7 @@ export default function ContactsScreen() {
   const [contacts, setContacts] = useState<ContactItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortOption, setSortOption] = useState<ContactSortOption>('account_desc');
   const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
   const [selectedHistoryContact, setSelectedHistoryContact] = useState<{ name: string; events: ContactHistoryEvent[] } | null>(null);
   const router = useRouter();
@@ -108,6 +112,7 @@ export default function ContactsScreen() {
   const bottomInset = Math.max(insets.bottom, 12);
   const fabBottomOffset = bottomInset + 16;
   const listBottomPadding = bottomInset + 88;
+  const isWeb = Platform.OS === 'web';
 
   const fetchContacts = useCallback(async () => {
     if (!user?.id) return;
@@ -250,6 +255,33 @@ export default function ContactsScreen() {
     );
   });
 
+  const sortedContacts = useMemo(() => {
+    const getAccountSize = (contact: ContactItem) => {
+      return Math.abs(Number(contact.balance || 0));
+    };
+
+    return [...filteredContacts].sort((a, b) => {
+      if (sortOption === 'name_asc') {
+        return getLinkedContactName(a).localeCompare(getLinkedContactName(b), undefined, { sensitivity: 'base' });
+      }
+      if (sortOption === 'name_desc') {
+        return getLinkedContactName(b).localeCompare(getLinkedContactName(a), undefined, { sensitivity: 'base' });
+      }
+      if (sortOption === 'account_asc') {
+        const sizeDiff = getAccountSize(a) - getAccountSize(b);
+        if (sizeDiff !== 0) return sizeDiff;
+      } else {
+        const sizeDiff = getAccountSize(b) - getAccountSize(a);
+        if (sizeDiff !== 0) return sizeDiff;
+      }
+
+      const openDiff = b.activeLoansList.length - a.activeLoansList.length;
+      if (openDiff !== 0) return openDiff;
+
+      return getLinkedContactName(a).localeCompare(getLinkedContactName(b), undefined, { sensitivity: 'base' });
+    });
+  }, [filteredContacts, sortOption]);
+
   const openHistoryModal = (contact: ContactItem) => {
     setSelectedHistoryContact({
       name: getLinkedContactName(contact),
@@ -270,6 +302,327 @@ export default function ContactsScreen() {
     }
   };
 
+  const renderContactCard = (item: ContactItem) => {
+    const isExpanded = expandedContactId === item.id;
+    const summaryTone = getSummaryTone(item.balance, item.itemsOwed);
+    const compactDetails = getCompactDetails(item);
+    const recentHistory = item.historyEntries.slice(0, 3);
+    const displayName = getLinkedContactName(item);
+
+    return (
+      <RNView
+        key={item.id}
+        style={[
+          styles.contactItemWrapper,
+          maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null,
+        ]}
+      >
+        <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedContactId(isExpanded ? null : item.id)}>
+          <Card style={[styles.contactItem, isExpanded && styles.contactItemExpanded]}>
+            <RNView style={styles.avatar}>
+              <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
+            </RNView>
+
+            <RNView style={styles.contactInfo}>
+              <RNView style={styles.contactNameRow}>
+                <Text style={styles.contactName}>{displayName}</Text>
+                {item.link_status === 'accepted' ? (
+                  <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgeAccepted]}>
+                    <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextAccepted]}>Linked</Text>
+                  </RNView>
+                ) : item.link_status === 'pending' ? (
+                  <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgePending]}>
+                    <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextPending]}>Invite sent</Text>
+                  </RNView>
+                ) : null}
+              </RNView>
+              <Text style={styles.contactDetail}>
+                {getLinkedContactPhone(item) || getLinkedContactEmail(item) || item.social_network || 'Tap to view details and history'}
+              </Text>
+            </RNView>
+
+            <RNView style={styles.summaryColumn}>
+              <Text style={[styles.summaryValue, summaryTone === 'positive' ? styles.summaryPositive : summaryTone === 'negative' ? styles.summaryNegative : styles.summaryNeutral]}>
+                {getPrimarySummary(item.balance, item.itemsOwed)}
+              </Text>
+              <Text style={styles.summaryLabel}>{getSecondarySummary(item.balance, item.itemsOwed, item.activeLoansList.length)}</Text>
+            </RNView>
+
+            <RNView style={styles.chevronButton}>
+              {isExpanded ? <ChevronUp size={20} color="#94A3B8" /> : <ChevronDown size={20} color="#94A3B8" />}
+            </RNView>
+          </Card>
+        </TouchableOpacity>
+
+        {isExpanded && (
+          <Card style={styles.expandedCard}>
+            <RNView style={styles.expandedHeaderRow}>
+              <Text style={styles.expandedSectionTitle}>Contact snapshot</Text>
+              <RNView style={styles.inlineActionsRow}>
+                <TouchableOpacity
+                  style={styles.inlineActionButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/new-loan',
+                      params: {
+                        contactId: item.id,
+                      },
+                    })
+                  }
+                >
+                  <Plus size={14} color="#FFFFFF" />
+                  <Text style={styles.inlineActionButtonText}>Add record</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.inlineLinkButton}
+                  onPress={() => router.push({ pathname: '/new-contact', params: { id: item.id } })}
+                >
+                  <Text style={styles.inlineLinkText}>Edit contact</Text>
+                </TouchableOpacity>
+              </RNView>
+            </RNView>
+
+            {compactDetails.length > 0 ? (
+              <RNView style={styles.detailList}>
+                {compactDetails.map((detail, index) => (
+                  <RNView
+                    key={`${item.id}-${detail.label}`}
+                    style={[styles.detailRow, index === compactDetails.length - 1 && styles.detailRowLast]}
+                  >
+                    <Text style={styles.detailRowLabel}>{detail.label}</Text>
+                    <Text style={styles.detailRowValue}>{detail.value}</Text>
+                  </RNView>
+                ))}
+              </RNView>
+            ) : (
+              <Text style={styles.emptyInlineText}>No extra details saved for this contact yet.</Text>
+            )}
+
+            {item.notes ? (
+              <RNView style={styles.noteCard}>
+                <Text style={styles.noteLabel}>Notes</Text>
+                <Text style={styles.noteText} numberOfLines={3}>{item.notes}</Text>
+              </RNView>
+            ) : null}
+
+            <RNView style={styles.accountLinkCard}>
+              <RNView style={styles.accountLinkHeader}>
+                <RNView style={styles.accountLinkIcon}>
+                  <Link2 size={16} color="#4F46E5" />
+                </RNView>
+                <RNView style={styles.accountLinkCopy}>
+                  <Text style={styles.accountLinkTitle}>
+                    {item.link_status === 'accepted'
+                      ? 'Linked to a Buddy Balance account'
+                      : item.link_status === 'pending'
+                        ? 'Friend invitation sent'
+                        : 'Link this contact to a friend account'}
+                  </Text>
+                  <Text style={styles.accountLinkText}>
+                    {item.link_status === 'accepted'
+                      ? 'Shared records with this person can sync across both accounts.'
+                      : item.link_status === 'pending'
+                        ? 'Good to go. Your invitation is on its way, and shared records will start syncing as soon as they accept.'
+                        : 'If this person uses Buddy Balance, add their friend code to connect both accounts.'}
+                  </Text>
+                </RNView>
+              </RNView>
+
+              {item.link_status !== 'accepted' ? (
+                <TouchableOpacity
+                  style={styles.accountLinkButton}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/new-contact',
+                      params: { id: item.id, mode: 'friend' },
+                    })
+                  }
+                >
+                  <Text style={styles.accountLinkButtonText}>
+                    {item.link_status === 'pending' ? 'Review friend link' : 'Link with friend code'}
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+            </RNView>
+
+            <RNView style={styles.expandedHeaderRow}>
+              <Text style={styles.expandedSectionTitle}>Recent activity</Text>
+              {item.historyEntries.length > 0 ? (
+                <TouchableOpacity style={styles.inlineLinkButton} onPress={() => openHistoryModal(item)}>
+                  <Text style={styles.inlineLinkText}>View history</Text>
+                </TouchableOpacity>
+              ) : null}
+            </RNView>
+
+            {recentHistory.length === 0 ? (
+              <Text style={styles.emptyInlineText}>No activity recorded with this contact yet.</Text>
+            ) : (
+              <RNView style={styles.activityList}>
+                {recentHistory.map((event, index) => (
+                  <TouchableOpacity
+                    key={event.id}
+                    activeOpacity={0.85}
+                    style={[styles.activityRow, index === recentHistory.length - 1 && styles.activityRowLast]}
+                    onPress={() => router.push(`/loan/${event.loanId}`)}
+                  >
+                    <RNView style={styles.activityCopy}>
+                      <Text style={styles.activityTitle}>{event.title}</Text>
+                      <Text style={styles.activitySubtitle}>{event.subtitle}</Text>
+                    </RNView>
+                    <RNView style={styles.activityRight}>
+                      {event.value ? <Text style={[styles.activityValue, event.valueColor ? { color: event.valueColor } : null]}>{event.value}</Text> : null}
+                      <Text style={styles.activityDate}>{formatActivityDate(event.occurredAt)}</Text>
+                    </RNView>
+                  </TouchableOpacity>
+                ))}
+              </RNView>
+            )}
+
+            <RNView style={styles.expandedHeaderRow}>
+              <Text style={styles.expandedSectionTitle}>Open records</Text>
+              <Text style={styles.sectionMeta}>{item.activeLoansList.length}</Text>
+            </RNView>
+
+            {item.activeLoansList.length === 0 ? (
+              <Text style={styles.emptyInlineText}>Nothing open with this contact right now.</Text>
+            ) : (
+              item.activeLoansList.map((loan, idx) => (
+                <RNView
+                  key={loan.id}
+                  style={[
+                    styles.openRecordRow,
+                    idx === item.activeLoansList.length - 1 && styles.openRecordRowLast,
+                  ]}
+                >
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => router.push(`/loan/${loan.id}`)}
+                  >
+                    <RNView style={styles.openRecordContent}>
+                      <RNView style={styles.openRecordCopy}>
+                        <Text style={styles.openRecordTitle}>
+                          {loan.category === 'money' ? 'Money record' : loan.item_name || 'Item record'}
+                        </Text>
+                        {loan.due_date ? (
+                          <Text style={styles.openRecordMeta}>
+                            {loan.category === 'money' ? 'Due' : 'Expected'} {formatSimpleDate(loan.due_date)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.openRecordMeta}>No due date</Text>
+                        )}
+                        <Text style={styles.openRecordHint}>Tap to open details</Text>
+                      </RNView>
+                      <RNView style={styles.openRecordRight}>
+                        {loan.category === 'money' ? (
+                          <Text style={[styles.openRecordValue, loan.type === 'lent' ? styles.summaryPositive : styles.summaryNegative]}>
+                            {getCurrencySymbol(loan.currency || 'USD')}{Math.round(Number(loan.remaining || 0)).toLocaleString()}
+                          </Text>
+                        ) : (
+                          <Text style={styles.openRecordValue}>Active</Text>
+                        )}
+                        <Text style={styles.openRecordType}>{loan.type === 'lent' ? 'Lent' : 'Borrowed'}</Text>
+                      </RNView>
+                    </RNView>
+                  </TouchableOpacity>
+
+                  {loan.category === 'money' && (
+                    <RNView style={styles.recordActionRow}>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() =>
+                          router.push({
+                            pathname: '/payment',
+                            params: {
+                              loanId: String(loan.id),
+                              remaining: String(Math.max(Number(loan.remaining) || 0, 0)),
+                              currency: String(loan.currency || 'USD'),
+                              category: String(loan.category || 'money'),
+                            },
+                          })
+                        }
+                        style={styles.recordActionButton}
+                      >
+                        <Text style={styles.recordActionText}>Add payment</Text>
+                      </TouchableOpacity>
+                    </RNView>
+                  )}
+                </RNView>
+              ))
+            )}
+          </Card>
+        )}
+      </RNView>
+    );
+  };
+
+  if (isWeb) {
+    if (!user) {
+      return <Redirect href="/(auth)/login" />;
+    }
+
+    return (
+      <WebAccountLayout
+        eyebrow="Contacts"
+        title="Manage the people and linked accounts behind your records."
+        description="Search, sort, review balances, inspect activity, and jump into shared records from the same web workspace."
+      >
+        <RNView style={[styles.searchWrapper, { paddingTop: isTablet ? 8 : 4 }]}>
+          <View style={[styles.searchContainer, maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null]}>
+            <Search size={20} color="#94A3B8" />
+            <TextInput
+              placeholder="Search contacts..."
+              placeholderTextColor="#94A3B8"
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.sortRow,
+              maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null,
+            ]}
+          >
+            <TouchableOpacity
+              style={[styles.sortChip, sortOption === 'account_desc' && styles.sortChipActive]}
+              onPress={() => setSortOption('account_desc')}
+            >
+              <Text style={[styles.sortChipText, sortOption === 'account_desc' && styles.sortChipTextActive]}>Largest account</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortChip, sortOption === 'account_asc' && styles.sortChipActive]}
+              onPress={() => setSortOption('account_asc')}
+            >
+              <Text style={[styles.sortChipText, sortOption === 'account_asc' && styles.sortChipTextActive]}>Smallest account</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortChip, sortOption === 'name_asc' && styles.sortChipActive]}
+              onPress={() => setSortOption('name_asc')}
+            >
+              <Text style={[styles.sortChipText, sortOption === 'name_asc' && styles.sortChipTextActive]}>A-Z</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.sortChip, sortOption === 'name_desc' && styles.sortChipActive]}
+              onPress={() => setSortOption('name_desc')}
+            >
+              <Text style={[styles.sortChipText, sortOption === 'name_desc' && styles.sortChipTextActive]}>Z-A</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </RNView>
+
+        {sortedContacts.length === 0 ? (
+          <Card style={[styles.emptyCard, maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null]}>
+            <Text style={styles.emptyText}>No contacts found.</Text>
+          </Card>
+        ) : (
+          sortedContacts.map((item) => renderContactCard(item))
+        )}
+      </WebAccountLayout>
+    );
+  }
+
   return (
     <Screen style={styles.container} safeAreaEdges={['left', 'right', 'bottom']}>
       <RNView style={[styles.searchWrapper, { paddingHorizontal: horizontalPadding, paddingTop: isTablet ? 24 : 20 }]}>
@@ -283,10 +636,43 @@ export default function ContactsScreen() {
             onChangeText={setSearchQuery}
           />
         </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[
+            styles.sortRow,
+            maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null,
+          ]}
+        >
+          <TouchableOpacity
+            style={[styles.sortChip, sortOption === 'account_desc' && styles.sortChipActive]}
+            onPress={() => setSortOption('account_desc')}
+          >
+            <Text style={[styles.sortChipText, sortOption === 'account_desc' && styles.sortChipTextActive]}>Largest account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortChip, sortOption === 'account_asc' && styles.sortChipActive]}
+            onPress={() => setSortOption('account_asc')}
+          >
+            <Text style={[styles.sortChipText, sortOption === 'account_asc' && styles.sortChipTextActive]}>Smallest account</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortChip, sortOption === 'name_asc' && styles.sortChipActive]}
+            onPress={() => setSortOption('name_asc')}
+          >
+            <Text style={[styles.sortChipText, sortOption === 'name_asc' && styles.sortChipTextActive]}>A-Z</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.sortChip, sortOption === 'name_desc' && styles.sortChipActive]}
+            onPress={() => setSortOption('name_desc')}
+          >
+            <Text style={[styles.sortChipText, sortOption === 'name_desc' && styles.sortChipTextActive]}>Z-A</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </RNView>
 
       <FlatList
-        data={filteredContacts}
+        data={sortedContacts}
         keyExtractor={(item) => item.id}
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustContentInsets={false}
@@ -305,257 +691,7 @@ export default function ContactsScreen() {
             <Text style={styles.emptyText}>No contacts found.</Text>
           </Card>
         }
-        renderItem={({ item }) => {
-          const isExpanded = expandedContactId === item.id;
-          const summaryTone = getSummaryTone(item.balance, item.itemsOwed);
-          const compactDetails = getCompactDetails(item);
-          const recentHistory = item.historyEntries.slice(0, 3);
-          const displayName = getLinkedContactName(item);
-
-          return (
-            <RNView
-              style={[
-                styles.contactItemWrapper,
-                maxContentWidth ? { maxWidth: maxContentWidth, alignSelf: 'center', width: '100%' } : null,
-              ]}
-            >
-              <TouchableOpacity activeOpacity={0.9} onPress={() => setExpandedContactId(isExpanded ? null : item.id)}>
-                <Card style={[styles.contactItem, isExpanded && styles.contactItemExpanded]}>
-                  <RNView style={styles.avatar}>
-                    <Text style={styles.avatarText}>{displayName[0]?.toUpperCase()}</Text>
-                  </RNView>
-
-                  <RNView style={styles.contactInfo}>
-                    <RNView style={styles.contactNameRow}>
-                      <Text style={styles.contactName}>{displayName}</Text>
-                      {item.link_status === 'accepted' ? (
-                        <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgeAccepted]}>
-                          <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextAccepted]}>Linked</Text>
-                        </RNView>
-                      ) : item.link_status === 'pending' ? (
-                        <RNView style={[styles.contactLinkBadge, styles.contactLinkBadgePending]}>
-                          <Text style={[styles.contactLinkBadgeText, styles.contactLinkBadgeTextPending]}>Invite sent</Text>
-                        </RNView>
-                      ) : null}
-                    </RNView>
-                    <Text style={styles.contactDetail}>
-                      {getLinkedContactPhone(item) || getLinkedContactEmail(item) || item.social_network || 'Tap to view details and history'}
-                    </Text>
-                  </RNView>
-
-                  <RNView style={styles.summaryColumn}>
-                    <Text style={[styles.summaryValue, summaryTone === 'positive' ? styles.summaryPositive : summaryTone === 'negative' ? styles.summaryNegative : styles.summaryNeutral]}>
-                      {getPrimarySummary(item.balance, item.itemsOwed)}
-                    </Text>
-                    <Text style={styles.summaryLabel}>{getSecondarySummary(item.balance, item.itemsOwed, item.activeLoansList.length)}</Text>
-                  </RNView>
-
-                  <RNView style={styles.chevronButton}>
-                    {isExpanded ? <ChevronUp size={20} color="#94A3B8" /> : <ChevronDown size={20} color="#94A3B8" />}
-                  </RNView>
-                </Card>
-              </TouchableOpacity>
-
-              {isExpanded && (
-                <Card style={styles.expandedCard}>
-                  <RNView style={styles.expandedHeaderRow}>
-                    <Text style={styles.expandedSectionTitle}>Contact snapshot</Text>
-                    <RNView style={styles.inlineActionsRow}>
-                      <TouchableOpacity
-                        style={styles.inlineActionButton}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/new-loan',
-                            params: {
-                              contactId: item.id,
-                            },
-                          })
-                        }
-                      >
-                        <Plus size={14} color="#FFFFFF" />
-                        <Text style={styles.inlineActionButtonText}>Add record</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.inlineLinkButton}
-                        onPress={() => router.push({ pathname: '/new-contact', params: { id: item.id } })}
-                      >
-                        <Text style={styles.inlineLinkText}>Edit contact</Text>
-                      </TouchableOpacity>
-                    </RNView>
-                  </RNView>
-
-                  {compactDetails.length > 0 ? (
-                    <RNView style={styles.detailList}>
-                      {compactDetails.map((detail, index) => (
-                        <RNView
-                          key={`${item.id}-${detail.label}`}
-                          style={[styles.detailRow, index === compactDetails.length - 1 && styles.detailRowLast]}
-                        >
-                          <Text style={styles.detailRowLabel}>{detail.label}</Text>
-                          <Text style={styles.detailRowValue}>{detail.value}</Text>
-                        </RNView>
-                      ))}
-                    </RNView>
-                  ) : (
-                    <Text style={styles.emptyInlineText}>No extra details saved for this contact yet.</Text>
-                  )}
-
-                  {item.notes ? (
-                    <RNView style={styles.noteCard}>
-                      <Text style={styles.noteLabel}>Notes</Text>
-                      <Text style={styles.noteText} numberOfLines={3}>{item.notes}</Text>
-                    </RNView>
-                  ) : null}
-
-                  <RNView style={styles.accountLinkCard}>
-                    <RNView style={styles.accountLinkHeader}>
-                      <RNView style={styles.accountLinkIcon}>
-                        <Link2 size={16} color="#4F46E5" />
-                      </RNView>
-                      <RNView style={styles.accountLinkCopy}>
-                        <Text style={styles.accountLinkTitle}>
-                          {item.link_status === 'accepted'
-                            ? 'Linked to a Buddy Balance account'
-                            : item.link_status === 'pending'
-                              ? 'Friend invitation sent'
-                              : 'Link this contact to a friend account'}
-                        </Text>
-                        <Text style={styles.accountLinkText}>
-                          {item.link_status === 'accepted'
-                            ? 'Shared records with this person can sync across both accounts.'
-                            : item.link_status === 'pending'
-                              ? 'Good to go. Your invitation is on its way, and shared records will start syncing as soon as they accept.'
-                              : 'If this person uses Buddy Balance, add their friend code to connect both accounts.'}
-                        </Text>
-                      </RNView>
-                    </RNView>
-
-                    {item.link_status !== 'accepted' ? (
-                      <TouchableOpacity
-                        style={styles.accountLinkButton}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/new-contact',
-                            params: { id: item.id, mode: 'friend' },
-                          })
-                        }
-                      >
-                        <Text style={styles.accountLinkButtonText}>
-                          {item.link_status === 'pending' ? 'Review friend link' : 'Link with friend code'}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </RNView>
-
-                  <RNView style={styles.expandedHeaderRow}>
-                    <Text style={styles.expandedSectionTitle}>Recent activity</Text>
-                    {item.historyEntries.length > 0 ? (
-                      <TouchableOpacity style={styles.inlineLinkButton} onPress={() => openHistoryModal(item)}>
-                        <Text style={styles.inlineLinkText}>View history</Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </RNView>
-
-                  {recentHistory.length === 0 ? (
-                    <Text style={styles.emptyInlineText}>No activity recorded with this contact yet.</Text>
-                  ) : (
-                    <RNView style={styles.activityList}>
-                      {recentHistory.map((event, index) => (
-                        <TouchableOpacity
-                          key={event.id}
-                          activeOpacity={0.85}
-                          style={[styles.activityRow, index === recentHistory.length - 1 && styles.activityRowLast]}
-                          onPress={() => router.push(`/loan/${event.loanId}`)}
-                        >
-                          <RNView style={styles.activityCopy}>
-                            <Text style={styles.activityTitle}>{event.title}</Text>
-                            <Text style={styles.activitySubtitle}>{event.subtitle}</Text>
-                          </RNView>
-                          <RNView style={styles.activityRight}>
-                            {event.value ? <Text style={[styles.activityValue, event.valueColor ? { color: event.valueColor } : null]}>{event.value}</Text> : null}
-                            <Text style={styles.activityDate}>{formatActivityDate(event.occurredAt)}</Text>
-                          </RNView>
-                        </TouchableOpacity>
-                      ))}
-                    </RNView>
-                  )}
-
-                  <RNView style={styles.expandedHeaderRow}>
-                    <Text style={styles.expandedSectionTitle}>Open records</Text>
-                    <Text style={styles.sectionMeta}>{item.activeLoansList.length}</Text>
-                  </RNView>
-
-                  {item.activeLoansList.length === 0 ? (
-                    <Text style={styles.emptyInlineText}>Nothing open with this contact right now.</Text>
-                  ) : (
-                    item.activeLoansList.map((loan, idx) => (
-                      <RNView
-                        key={loan.id}
-                        style={[
-                          styles.openRecordRow,
-                          idx === item.activeLoansList.length - 1 && styles.openRecordRowLast,
-                        ]}
-                      >
-                        <TouchableOpacity
-                          activeOpacity={0.85}
-                          onPress={() => router.push(`/loan/${loan.id}`)}
-                        >
-                          <RNView style={styles.openRecordContent}>
-                            <RNView style={styles.openRecordCopy}>
-                              <Text style={styles.openRecordTitle}>
-                                {loan.category === 'money' ? 'Money record' : loan.item_name || 'Item record'}
-                              </Text>
-                              {loan.due_date ? (
-                                <Text style={styles.openRecordMeta}>
-                                  {loan.category === 'money' ? 'Due' : 'Expected'} {formatSimpleDate(loan.due_date)}
-                                </Text>
-                              ) : (
-                                <Text style={styles.openRecordMeta}>No due date</Text>
-                              )}
-                              <Text style={styles.openRecordHint}>Tap to open details</Text>
-                            </RNView>
-                            <RNView style={styles.openRecordRight}>
-                              {loan.category === 'money' ? (
-                                <Text style={[styles.openRecordValue, loan.type === 'lent' ? styles.summaryPositive : styles.summaryNegative]}>
-                                  {getCurrencySymbol(loan.currency || 'USD')}{Math.round(Number(loan.remaining || 0)).toLocaleString()}
-                                </Text>
-                              ) : (
-                                <Text style={styles.openRecordValue}>Active</Text>
-                              )}
-                              <Text style={styles.openRecordType}>{loan.type === 'lent' ? 'Lent' : 'Borrowed'}</Text>
-                            </RNView>
-                          </RNView>
-                        </TouchableOpacity>
-
-                        {loan.category === 'money' && (
-                          <RNView style={styles.recordActionRow}>
-                            <TouchableOpacity
-                              activeOpacity={0.85}
-                              onPress={() =>
-                                router.push({
-                                  pathname: '/payment',
-                                  params: {
-                                    loanId: String(loan.id),
-                                    remaining: String(Math.max(Number(loan.remaining) || 0, 0)),
-                                    currency: String(loan.currency || 'USD'),
-                                    category: String(loan.category || 'money'),
-                                  },
-                                })
-                              }
-                              style={styles.recordActionButton}
-                            >
-                              <Text style={styles.recordActionText}>Add payment</Text>
-                            </TouchableOpacity>
-                          </RNView>
-                        )}
-                      </RNView>
-                    ))
-                  )}
-                </Card>
-              )}
-            </RNView>
-          );
-        }}
+        renderItem={({ item }) => renderContactCard(item)}
         ListFooterComponent={<AppLegalFooter style={styles.copyright} />}
       />
 
@@ -773,6 +909,33 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: '#F1F5F9',
+  },
+  sortRow: {
+    marginTop: 12,
+    gap: 10,
+    paddingRight: 8,
+  },
+  sortChip: {
+    minHeight: 38,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D9E1FF',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+  },
+  sortChipActive: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#C7D2FE',
+  },
+  sortChipText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  sortChipTextActive: {
+    color: '#4338CA',
   },
   searchInput: {
     flex: 1,

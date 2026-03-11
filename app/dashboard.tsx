@@ -18,7 +18,6 @@ import {
   Plus,
   Sparkles,
   UserPlus,
-  Users,
   Wallet,
 } from 'lucide-react-native';
 
@@ -109,42 +108,6 @@ function getDueLabel(dueDate?: string | null) {
   if (diffDays === 0) return 'Due today';
   if (diffDays === 1) return 'Due tomorrow';
   return `Due in ${diffDays} days`;
-}
-
-function WorkspaceAction({
-  label,
-  description,
-  onPress,
-  tone = 'default',
-  icon,
-  compact = false,
-}: {
-  label: string;
-  description: string;
-  onPress: () => void;
-  tone?: 'default' | 'primary';
-  icon: React.ReactNode;
-  compact?: boolean;
-}) {
-  return (
-    <Pressable
-      style={({ hovered, pressed }) => [
-        styles.actionCard,
-        styles.interactiveSurface,
-        compact && styles.actionCardCompact,
-        tone === 'primary' ? styles.actionCardPrimary : null,
-        hovered && styles.interactiveSurfaceHovered,
-        pressed && styles.interactiveSurfacePressed,
-      ]}
-      onPress={onPress}
-    >
-      <RNView style={[styles.actionIcon, tone === 'primary' ? styles.actionIconPrimary : null]}>{icon}</RNView>
-      <Text style={[styles.actionLabel, tone === 'primary' ? styles.actionLabelPrimary : null]}>{label}</Text>
-      <Text style={[styles.actionDescription, tone === 'primary' ? styles.actionDescriptionPrimary : null]}>
-        {description}
-      </Text>
-    </Pressable>
-  );
 }
 
 function getFilterLabel(filter: DashboardRecordFilter | null) {
@@ -364,6 +327,41 @@ export default function AccountDashboardScreen() {
     >
       <Stack.Screen options={{ headerShown: false }} />
 
+      <RNView style={[styles.dashboardActionsRow, compactWeb && styles.stackGridTight]}>
+        <Pressable
+          style={({ hovered, pressed }) => [
+            styles.dashboardActionButton,
+            styles.dashboardActionButtonPrimary,
+            styles.interactiveSurface,
+            compactWeb && styles.dashboardActionButtonCompact,
+            hovered && styles.interactiveSurfaceHovered,
+            pressed && styles.interactiveSurfacePressed,
+          ]}
+          onPress={() => router.push('/new-loan')}
+        >
+          <RNView style={styles.dashboardActionIconPrimary}>
+            <Plus size={16} color="#FFFFFF" />
+          </RNView>
+          <Text style={styles.dashboardActionPrimaryText}>New record</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ hovered, pressed }) => [
+            styles.dashboardActionButton,
+            styles.interactiveSurface,
+            compactWeb && styles.dashboardActionButtonCompact,
+            hovered && styles.interactiveSurfaceHovered,
+            pressed && styles.interactiveSurfacePressed,
+          ]}
+          onPress={() => router.push('/new-contact?mode=friend')}
+        >
+          <RNView style={styles.dashboardActionIconSecondary}>
+            <UserPlus size={16} color="#4F46E5" />
+          </RNView>
+          <Text style={styles.dashboardActionSecondaryText}>Add friend</Text>
+        </Pressable>
+      </RNView>
+
       <RNView style={[styles.splitGrid, compactWeb && styles.stackGrid]}>
         <Card style={[styles.panelCard, compactWeb && styles.panelCardCompact]}>
           <Text style={styles.panelTitle}>Balance snapshot</Text>
@@ -558,44 +556,6 @@ export default function AccountDashboardScreen() {
             </Pressable>
           ))
         )}
-      </Card>
-
-      <Card style={[styles.panelCard, compactWeb && styles.panelCardCompact]}>
-        <Text style={styles.panelTitle}>Run the app from here</Text>
-        <Text style={styles.panelBody}>
-          Start the same core flows you already use on mobile. Account and admin navigation stay in the sidebar so the workspace does not repeat itself.
-        </Text>
-        <RNView style={[styles.actionGrid, compactWeb && styles.stackGridTight]}>
-          <WorkspaceAction
-            label="New record"
-            description="Create a new lend, borrow, or shared item record."
-            tone="primary"
-            icon={<Plus size={18} color="#FFFFFF" />}
-            compact={compactWeb}
-            onPress={() => router.push('/new-loan')}
-          />
-          <WorkspaceAction
-            label="Add friend"
-            description="Create a new contact or send a friend-linked invite."
-            icon={<UserPlus size={18} color="#4F46E5" />}
-            compact={compactWeb}
-            onPress={() => router.push('/new-contact?mode=friend')}
-          />
-          <WorkspaceAction
-            label="Requests"
-            description="Review confirmations, invites, and pending actions."
-            icon={<Bell size={18} color="#4F46E5" />}
-            compact={compactWeb}
-            onPress={() => router.push('/requests')}
-          />
-          <WorkspaceAction
-            label="Contacts"
-            description="Open the shared contact list and relationship timeline."
-            icon={<Users size={18} color="#4F46E5" />}
-            compact={compactWeb}
-            onPress={() => router.push('/(tabs)/contacts' as any)}
-          />
-        </RNView>
       </Card>
 
       <Card style={[styles.panelCard, compactWeb && styles.panelCardCompact]}>
@@ -807,6 +767,57 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 16,
   },
+  dashboardActionsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  dashboardActionButton: {
+    minHeight: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#D9E1FF',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dashboardActionButtonCompact: {
+    width: '100%',
+    justifyContent: 'center',
+  },
+  dashboardActionButtonPrimary: {
+    backgroundColor: '#101A3A',
+    borderColor: '#101A3A',
+  },
+  dashboardActionIconPrimary: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  dashboardActionIconSecondary: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EEF2FF',
+  },
+  dashboardActionPrimaryText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  dashboardActionSecondaryText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#4338CA',
+  },
   panelCard: {
     flex: 1,
     minWidth: 320,
@@ -826,59 +837,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 22,
     color: '#475569',
-  },
-  actionGrid: {
-    marginTop: 18,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  actionCard: {
-    flex: 1,
-    minWidth: 220,
-    borderRadius: 18,
-    padding: 18,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  actionCardCompact: {
-    width: '100%',
-    minWidth: 0,
-    flex: 0,
-  },
-  actionCardPrimary: {
-    backgroundColor: '#101A3A',
-    borderColor: '#101A3A',
-  },
-  actionIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#EEF2FF',
-  },
-  actionIconPrimary: {
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  actionLabel: {
-    marginTop: 16,
-    fontSize: 16,
-    fontWeight: '900',
-    color: '#0F172A',
-  },
-  actionLabelPrimary: {
-    color: '#FFFFFF',
-  },
-  actionDescription: {
-    marginTop: 6,
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#64748B',
-  },
-  actionDescriptionPrimary: {
-    color: 'rgba(255,255,255,0.82)',
   },
   linkStack: {
     marginTop: 18,

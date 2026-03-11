@@ -92,6 +92,7 @@ function RootLayoutNav() {
           />
           <Stack.Screen name="payment" options={{ headerShown: false }} />
           <Stack.Screen name="register-payment" options={{ headerShown: false }} />
+          <Stack.Screen name="contacts" options={{ headerShown: false }} />
           <Stack.Screen name="profile" options={{ title: 'Profile' }} />
           <Stack.Screen name="subscription" options={{ title: 'Premium' }} />
           <Stack.Screen name="notifications" options={{ title: 'Notifications' }} />

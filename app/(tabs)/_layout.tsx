@@ -19,7 +19,7 @@ export default function TabLayout() {
     return <Redirect href={Platform.OS === 'web' ? '/(auth)/login' : '/'} />;
   }
 
-  const currentTabSegment = segments[1];
+  const currentTabSegment = String(segments[1] || '');
   const activeTab = currentTabSegment === 'contacts'
     ? 'contacts'
     : currentTabSegment === 'settings'
@@ -32,7 +32,7 @@ export default function TabLayout() {
       return;
     }
     if (tab === 'contacts' && activeTab !== 'contacts') {
-      router.replace('/(tabs)/contacts');
+      router.replace('/(tabs)/contacts' as any);
       return;
     }
     if (tab === 'settings' && activeTab !== 'settings') {

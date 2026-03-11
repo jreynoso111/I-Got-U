@@ -39,7 +39,7 @@ export default function NewContactScreen() {
             : 'New Contact';
     const navigateAfterSave = () => {
         if (isFriendMode) {
-            router.replace('/(tabs)/contacts');
+            router.replace((Platform.OS === 'web' ? '/contacts' : '/(tabs)/contacts') as any);
             return;
         }
 
@@ -450,7 +450,7 @@ export default function NewContactScreen() {
 
             if (!hardDeleteError && hardDeletedRows && hardDeletedRows.length > 0) {
                 Alert.alert('Success', 'Contact deleted');
-                router.replace('/(tabs)/contacts');
+                router.replace((Platform.OS === 'web' ? '/contacts' : '/(tabs)/contacts') as any);
                 return;
             }
 
@@ -479,7 +479,7 @@ export default function NewContactScreen() {
             }
 
             Alert.alert('Success', 'Contact deleted');
-            router.replace('/(tabs)/contacts');
+            router.replace((Platform.OS === 'web' ? '/contacts' : '/(tabs)/contacts') as any);
         } catch (error: any) {
             Alert.alert('Error', error?.message || 'Unexpected error deleting contact');
         } finally {
