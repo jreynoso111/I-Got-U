@@ -1,5 +1,18 @@
 {
   "buildCommand": "npm run build:web",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.buddybalance.net"
+        }
+      ],
+      "destination": "https://buddybalance.net/:path*",
+      "permanent": true
+    }
+  ]
 }
