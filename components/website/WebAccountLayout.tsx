@@ -31,6 +31,7 @@ const ADMIN_NAV_ITEM: AccountNavItem = {
   label: 'Admin Analytics',
   matches: ['/admin'],
 };
+const SUBBAR_EXCLUDED_HREFS = new Set(['/contacts', '/profile', '/subscription', '/notifications']);
 
 function matchesPath(pathname: string, patterns: string[]) {
   return patterns.some((pattern) => pathname === pattern || pathname.startsWith(`${pattern}/`));
@@ -66,6 +67,7 @@ export function WebAccountLayout({
   const accountNav: AccountNavItem[] = hasAdminAccess
     ? [...BASE_ACCOUNT_NAV, ADMIN_NAV_ITEM]
     : BASE_ACCOUNT_NAV;
+  const subbarNav = accountNav.filter((item) => !SUBBAR_EXCLUDED_HREFS.has(String(item.href)));
 
   const signOut = async () => {
     await signOutAndResetAuthState();
@@ -166,7 +168,7 @@ export function WebAccountLayout({
         </View>
       </View>
 
-      <View style={[styles.subbarSticky, compact && styles.subbarStatic, isDark && styles.subbarStickyDark]}>
+      <View style={[styles.subbarWrap, isDark && styles.subbarWrapDark]}>
         <View style={styles.shellFrame}>
           <View style={[styles.subbar, mobile && styles.subbarMobile, isDark && styles.subbarDark]}>
             <View style={[styles.subbarIdentity, mobile && styles.subbarIdentityMobile]}>
@@ -183,7 +185,7 @@ export function WebAccountLayout({
             </View>
 
             <View style={[styles.subbarNav, mobile && styles.subbarNavMobile]}>
-              {accountNav.map((item) => {
+              {subbarNav.map((item) => {
                 const active = matchesPath(pathname, item.matches);
                 return (
                   <Link key={item.label} href={item.href} asChild>
@@ -314,23 +316,11 @@ const styles = StyleSheet.create({
     position: 'relative',
     top: 'auto',
   },
-  subbarSticky: {
-    zIndex: 18,
-    backgroundColor: 'rgba(246,248,255,0.9)',
+  subbarWrap: {
     paddingBottom: 10,
-    ...(Platform.OS === 'web'
-      ? {
-          position: 'sticky' as const,
-          top: 104,
-        }
-      : null),
   },
-  subbarStickyDark: {
-    backgroundColor: 'rgba(2,6,23,0.88)',
-  },
-  subbarStatic: {
-    position: 'relative',
-    top: 'auto',
+  subbarWrapDark: {
+    backgroundColor: 'transparent',
   },
   topbar: {
     borderRadius: 24,
@@ -459,8 +449,8 @@ const styles = StyleSheet.create({
   },
   subbar: {
     borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderWidth: 1,
     borderColor: '#E2E8F0',
@@ -471,8 +461,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   subbarMobile: {
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     borderRadius: 18,
   },
   subbarDark: {
@@ -490,17 +480,17 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   subbarAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   subbarIdentityCopy: {
     gap: 2,
     flexShrink: 1,
   },
   subbarName: {
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     color: '#0F172A',
   },
@@ -508,8 +498,8 @@ const styles = StyleSheet.create({
     color: '#F8FAFC',
   },
   subbarEmail: {
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: 12,
+    lineHeight: 17,
     color: '#475569',
   },
   subbarEmailDark: {
@@ -517,7 +507,7 @@ const styles = StyleSheet.create({
   },
   subbarMeta: {
     fontSize: 11,
-    lineHeight: 16,
+    lineHeight: 14,
     color: '#6366F1',
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -540,9 +530,9 @@ const styles = StyleSheet.create({
     flex: 0,
   },
   subbarNavLink: {
-    minHeight: 42,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    minHeight: 38,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -573,7 +563,7 @@ const styles = StyleSheet.create({
     borderColor: '#475569',
   },
   subbarNavText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#334155',
   },
