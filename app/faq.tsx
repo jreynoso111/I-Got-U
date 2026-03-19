@@ -47,9 +47,9 @@ const FAQ_ITEMS = [
       'Go to Contacts and tap a row to expand it. From there you can review recent activity, inspect open records, edit the contact, and create a new record tied to that contact without selecting them again.',
   },
   {
-    question: 'What do the notifications counts mean in admin tools?',
+    question: 'What do notification and request counts mean?',
     answer:
-      'Admin counters are shortcuts into the underlying queues. Pending confirmations, friend requests, and total records can be opened as filtered admin views so you can inspect the actual items instead of just seeing the counts.',
+      'Counts are quick indicators that help you see whether there are pending confirmations, friend requests, or related activity that may need your attention inside the app.',
   },
   {
     question: 'What does Premium change?',
@@ -109,7 +109,7 @@ export default function FAQScreen() {
           <Text style={styles.introTitle}>Current FAQ</Text>
           <Text style={styles.introText}>
             These answers reflect the current behavior of contacts, shared records, notifications, Premium,
-            and admin review flows in the app today.
+            and account support flows in the app today.
           </Text>
         </Card>
 

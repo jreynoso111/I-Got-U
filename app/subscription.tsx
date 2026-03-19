@@ -33,7 +33,7 @@ function formatMembershipDate(value?: string | null) {
 function getMembershipSourceLabel(source?: MembershipDetails['grantedSource']) {
   if (source === 'referral') return 'Referral reward';
   if (source === 'purchase') return 'Direct purchase';
-  if (source === 'admin') return 'Admin granted';
+  if (source === 'admin') return 'Manual access';
   return 'Not recorded yet';
 }
 
@@ -143,10 +143,10 @@ export default function SubscriptionScreen() {
   const membershipSourceDetail =
     membershipDetails?.grantedSource === 'referral' && referralSummary
       ? `${referralSummary.referralCount} successful invite uses recorded`
-      : membershipDetails?.grantedSource === 'purchase'
-        ? 'Premium access came from a successful checkout'
+        : membershipDetails?.grantedSource === 'purchase'
+          ? 'Premium access came from a successful checkout'
         : membershipDetails?.grantedSource === 'admin'
-          ? 'Premium access was enabled manually by an administrator'
+          ? 'Premium access was enabled directly for this account'
           : 'This account is Premium, but the source metadata is not available yet.';
 
   if (Platform.OS === 'web') {
@@ -158,7 +158,7 @@ export default function SubscriptionScreen() {
         <WebAccountLayout
           eyebrow="Membership"
           title={planTier === 'premium' ? 'Premium is active on this account.' : 'Upgrade this account to Premium from Membership.'}
-          description="Membership is where web shows the live plan, the upgrade action, referrals, and any admin-granted Premium state for this account."
+          description="Membership is where web shows the live plan, the upgrade action, referrals, and how Premium is currently active on this account."
         >
           <RNView style={[styles.webGrid, compactWeb && styles.webGridCompact]}>
             <Card style={[styles.webPanel, compactWeb && styles.webPanelCompact]}>
@@ -319,12 +319,11 @@ export default function SubscriptionScreen() {
           <Text style={styles.stateTitle}>Direct store billing is not live yet</Text>
           <Text style={styles.stateText}>
             {isBillingAvailable()
-              ? 'Google Play will handle Premium purchases directly. Until that checkout is wired, admins can switch users between Free and Premium from the admin dashboard.'
+              ? 'Google Play will handle Premium purchases directly. Until that checkout is fully wired, Premium access may still be updated directly on an account when needed.'
               : unavailableReason}
           </Text>
           <Text style={styles.stateFootnote}>
-            Current status: Premium access is controlled by `profiles.plan_tier` and can still be managed manually by an
-            administrator.
+            Current status: Premium access is controlled by `profiles.plan_tier` and can still be managed manually when needed.
           </Text>
           {referralSummary ? (
             <Text style={styles.androidHint}>

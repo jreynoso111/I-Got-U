@@ -27,9 +27,9 @@ const SECTIONS = [
       'Some actions can create shared events, notifications, requests, or confirmations for another user. You agree to use those flows honestly and not to misrepresent balances, payments, item returns, or record ownership.',
   },
   {
-    title: 'Premium and admin features',
+    title: 'Premium features and availability',
     body:
-      'Certain capabilities may be limited to Premium users or administrator accounts. Premium access can enable additional management features, while admin access is intended only for platform operations, review, and support handling.',
+      'Certain capabilities may be limited by plan tier, account eligibility, or feature availability. Premium access can unlock additional features and higher usage limits as described in the app.',
   },
   {
     title: 'What is not allowed',

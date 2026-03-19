@@ -48,7 +48,7 @@ export default function ContactScreen() {
 
         <SupportMessageCard
           title="Open a tracked support request"
-          description="Write what happened, which record or contact was involved, and what result you expected. The request will be saved for admin follow-up."
+          description="Write what happened, which record or contact was involved, and what result you expected. The request will be saved for support follow-up."
           signedOutTitle="Public contact starts with direction, not a blind inbox"
           signedOutDescription="Sign in if the request depends on your account. Public pages stay available for launch visitors, but account support should remain attached to the right user history."
         />

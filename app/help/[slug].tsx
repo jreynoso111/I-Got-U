@@ -21,7 +21,6 @@ const HELP_SECTIONS: Record<string, HelpSection> = {
       'An informational notification is used when the app only needs to tell the other person that something happened, without asking for approval.',
       'Friend requests and certain shared updates can appear in confirmation queues.',
       'Some shared record events can notify the other user immediately without creating a pending approval task.',
-      'Admin tools can open the underlying queues so an administrator can inspect the actual requests behind the counters.',
     ],
   },
   'contacts-shared-history': {
@@ -34,18 +33,6 @@ const HELP_SECTIONS: Record<string, HelpSection> = {
       'Use "Add record" from the expanded card to create a new record with that contact already selected.',
       'Shared history helps you review what has happened with that contact without leaving the contact flow.',
       'This view is meant to reduce extra taps when you already know which person the new record belongs to.',
-    ],
-  },
-  'admin-tools': {
-    title: 'Admin Tools',
-    intro:
-      'Administrator tools are for platform review and operational follow-up. They are separate from standard user features.',
-    bullets: [
-      'Admin screens can expose user lists, confirmation queues, friend request queues, support messages, and platform records.',
-      'Count cards in the admin dashboard should lead to the underlying filtered lists, so admins can inspect the real items behind each count.',
-      'These tools are intended for operational review, moderation, and support handling.',
-      'Admin features are role-based. They are not general help content for standard users and should stay separated from normal account actions.',
-      'If a support message is submitted from the app, it is stored so an administrator can review it from the admin side.',
     ],
   },
 };

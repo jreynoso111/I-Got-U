@@ -51,7 +51,7 @@ export function SupportMessageCard({
     setSending(false);
     setSubject('');
     setMessage('');
-    Alert.alert('Message sent', 'Your support message was saved for admin review.');
+    Alert.alert('Message sent', 'Your support message was saved for support follow-up.');
   };
 
   return (

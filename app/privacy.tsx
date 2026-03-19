@@ -4,47 +4,15 @@ import { Stack, type Href } from 'expo-router';
 import { Screen, Card, Text } from '@/components/Themed';
 import { PublicSiteLayout } from '@/components/website/PublicSiteLayout';
 
-const SECTIONS = [
-  {
-    title: 'What we store',
-    body:
-      'Buddy Balance stores the information you intentionally provide to operate the service, including account details, contacts, records, payment history, item return history, support messages, preferences, and related metadata needed to show balances and shared activity.',
-  },
-  {
-    title: 'What other participants can see',
-    body:
-      'When you interact with another connected account, the app can create shared events, confirmations, notifications, or activity records so both sides can see what changed. This shared data is part of the product experience and may be visible to the people involved in that record or request.',
-  },
-  {
-    title: 'How the app uses that data',
-    body:
-      'We use account and record data to authenticate you, render balances, keep contact history accurate, power notifications, support Premium and admin experiences, respond to support requests, and improve reliability of the product.',
-  },
-  {
-    title: 'Premium, admin, and support context',
-    body:
-      'If your account has Premium access, the app may enable additional features such as exports and Premium labeling in the interface. If your account has admin privileges, admin tools can expose broader operational data required to review users, requests, and support communications.',
-  },
-  {
-    title: 'Security and infrastructure',
-    body:
-      'We apply reasonable technical and organizational measures to protect data in the app. No internet-connected system is perfectly secure, so we cannot promise absolute security, but we do design the product to limit accidental loss, corruption, and unauthorized access where practical.',
-  },
-  {
-    title: 'Third-party services',
-    body:
-      'The app relies on infrastructure providers to authenticate users, store application data, and deliver connected product behavior. Those providers process data only as needed to operate the service on our behalf.',
-  },
-  {
-    title: 'Retention and deletion',
-    body:
-      'We retain data for as long as it is needed to operate the service, satisfy support or audit needs, and maintain shared record history. If you need your account reviewed for deletion, use the in-app support form so the request can be verified and processed.',
-  },
-  {
-    title: 'Policy changes',
-    body:
-      'We may update this Privacy Policy as the product evolves. Continued use of Buddy Balance after an update means the revised policy applies from that point forward.',
-  },
+const POLICY_PARAGRAPHS = [
+  'This Privacy Policy describes how Buddy Balance collects, uses, stores, protects, and otherwise handles information when you access or use the Buddy Balance application, related website experiences, and public or in-app support pages. Buddy Balance is operated by Caribbean Insides. By creating an account, accessing the service, or continuing to use any part of the product, you acknowledge that information may be processed in the manner described in this policy. Buddy Balance is a recordkeeping and coordination product for shared financial and item-tracking activity; it is not a bank, payment processor, escrow provider, money transmitter, or debt collection service, and this policy should be read in that context.',
+  'The information collected through Buddy Balance may include data you provide directly and data generated through use of the product. Depending on how you use the service, that information may include account identifiers, sign-in details, profile data, names, contact information, contacts you create or connect, loan records, payment history, item return history, confirmations, requests, notifications, support communications, preferences, and technical or usage-related metadata necessary to operate the service. We may also maintain timestamps, device-related signals, session-related information, and records of actions taken within the product where doing so is reasonably necessary to keep the service functional, secure, traceable, and consistent across shared user experiences.',
+  'Buddy Balance uses this information for legitimate operational purposes connected to the service. Those purposes include creating and maintaining user accounts, authenticating access, displaying balances and shared history, processing updates to records, preserving timeline accuracy, enabling confirmations and notifications, supporting referrals or plan features where applicable, responding to support requests, preventing misuse, troubleshooting errors, monitoring product reliability, and improving the quality, safety, and performance of the service. Information may also be used where reasonably necessary to enforce the applicable terms, comply with legal obligations, protect the rights or security of the service, and maintain the integrity of records that users rely on inside the product.',
+  'Because Buddy Balance is built around shared recordkeeping between connected users, certain information is visible by design to the participants involved in a shared interaction. When you create, update, confirm, or otherwise engage with a record that involves another user, the service may display relevant information about that activity to the connected participant so the shared record can function as intended. This may include record details, balances, payment or return history, requests, confirmations, and event timelines associated with that interaction. Users should therefore avoid entering information they do not want reflected in the ordinary operation of a shared record, since visibility to the relevant participant is a core feature of the product rather than an incidental disclosure.',
+  'If you contact Buddy Balance support, the information you submit may be used together with associated account and product context to investigate issues, answer questions, verify requests, resolve technical problems, review account-related concerns, and improve the support experience. Support-related information may be retained for follow-up, continuity, fraud prevention, product quality review, and recordkeeping purposes. Where appropriate, requests involving access, corrections, account recovery, or deletion review may require verification before action is taken, particularly where the request could affect shared records, account security, or the integrity of historical activity stored in the service.',
+  'Buddy Balance may rely on third-party service providers and infrastructure partners to support functions such as hosting, authentication, storage, networking, security, and related technical operations required to run the service. Those providers may process information on behalf of Caribbean Insides only to the extent reasonably necessary to provide infrastructure or operational support for the product. Information may also be disclosed if reasonably necessary to comply with applicable law, legal process, enforceable governmental request, or to protect the rights, safety, security, and integrity of the service, its operator, or its users. Aside from those circumstances and the ordinary participant visibility inherent in shared records, this policy does not intend to expand disclosure rights beyond what is required to operate the product responsibly.',
+  'Information is retained for as long as reasonably necessary to provide the service, preserve shared record history, maintain continuity between participants, respond to support matters, investigate disputes, protect against abuse, comply with legal obligations, and enforce the rules that apply to the product. Because Buddy Balance includes collaborative and historical recordkeeping, deletion may not always mean immediate erasure of every data point from every operational context, especially where retention is needed to preserve the integrity of shared activity or to resolve outstanding support, safety, legal, or operational issues. Users may request account review, corrections, or deletion-related assistance through available support channels, and any such request may be subject to verification and reasonable processing requirements.',
+  'Caribbean Insides uses reasonable technical and organizational safeguards designed to help protect information from unauthorized access, misuse, alteration, loss, or disclosure. Even so, no online platform, transmission channel, or storage system can be guaranteed to be completely secure, and Buddy Balance cannot promise absolute security. The service is not intended for children who are below the minimum age required under applicable law to use the product. We may update this Privacy Policy from time to time to reflect changes in product functionality, operational practices, legal requirements, or business structure. When an updated version is published, the revised policy will apply from the time it becomes effective, and continued use of the service after that point will be treated as acceptance of the updated policy to the extent permitted by law.',
 ] as const;
 
 export default function PrivacyPolicyScreen() {
@@ -52,32 +20,23 @@ export default function PrivacyPolicyScreen() {
     return (
       <PublicSiteLayout
         hideHero
-        title="Privacy is the policy branch of the Buddy Balance support section."
-        description="Buddy Balance is built around shared activity between connected people, so this policy explains both the personal data you provide and the event history that can become visible to other participants."
+        title="Privacy Policy for Buddy Balance"
+        description="Please review this Privacy Policy carefully before using Buddy Balance."
         actions={[
           { href: '/help-support', label: 'Back to Support' },
           { href: '/contact' as Href, label: 'Contact support', variant: 'secondary' },
         ]}
       >
-        <View style={styles.webNoticeCard}>
-          <Text style={styles.webNoticeEyebrow}>IMPORTANT</Text>
-          <Text style={styles.webNoticeTitle}>Buddy Balance does not handle real money.</Text>
-          <Text style={styles.webNoticeStrongLine}>Not a payment processor. No bank connection. No money movement.</Text>
-          <Text style={styles.webNoticeBody}>
-            It does not move funds and does not connect to bank accounts. The product stores records and shared history
-            that users choose to log.
-          </Text>
+        <View style={styles.documentHeader}>
+          <Text style={styles.documentTitle}>Buddy Balance Privacy Policy</Text>
+          <Text style={styles.documentMeta}>Operated by Caribbean Insides</Text>
         </View>
 
-        <View style={styles.articleStack}>
-          {SECTIONS.map((section, index) => (
-            <View key={section.title} style={styles.articleRow}>
-              <Text style={styles.articleIndex}>{String(index + 1).padStart(2, '0')}</Text>
-              <View style={styles.articleCopy}>
-                <Text style={styles.articleTitle}>{section.title}</Text>
-                <Text style={styles.articleBody}>{section.body}</Text>
-              </View>
-            </View>
+        <View style={styles.documentCard}>
+          {POLICY_PARAGRAPHS.map((paragraph, index) => (
+            <Text key={index} style={styles.documentParagraph}>
+              {paragraph}
+            </Text>
           ))}
         </View>
       </PublicSiteLayout>
@@ -88,20 +47,18 @@ export default function PrivacyPolicyScreen() {
     <Screen style={styles.container}>
       <Stack.Screen options={{ title: 'Privacy Policy' }} />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Card style={styles.introCard}>
-          <Text style={styles.introTitle}>Privacy overview</Text>
-          <Text style={styles.introText}>
-            Buddy Balance is built around shared record tracking, so privacy depends both on your own account data
-            and on the events you intentionally create with connected people.
-          </Text>
+        <Card style={styles.mobileHeaderCard}>
+          <Text style={styles.mobileHeaderTitle}>Buddy Balance Privacy Policy</Text>
+          <Text style={styles.mobileHeaderMeta}>Operated by Caribbean Insides</Text>
         </Card>
 
-        {SECTIONS.map((section) => (
-          <Card key={section.title} style={styles.sectionCard}>
-            <Text style={styles.heading}>{section.title}</Text>
-            <Text style={styles.content}>{section.body}</Text>
-          </Card>
-        ))}
+        <Card style={styles.mobileDocumentCard}>
+          {POLICY_PARAGRAPHS.map((paragraph, index) => (
+            <Text key={index} style={[styles.mobileDocumentParagraph, index === POLICY_PARAGRAPHS.length - 1 && styles.mobileDocumentParagraphLast]}>
+              {paragraph}
+            </Text>
+          ))}
+        </Card>
       </ScrollView>
     </Screen>
   );
@@ -116,103 +73,78 @@ const styles = StyleSheet.create({
     paddingTop: 120,
     paddingBottom: 40,
   },
-  introCard: {
-    padding: 20,
-    marginBottom: 16,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+  documentHeader: {
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
+    paddingBottom: 6,
   },
-  introTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#1D4ED8',
-    marginBottom: 8,
-  },
-  introText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#1E3A8A',
-  },
-  sectionCard: {
-    padding: 18,
-    marginBottom: 12,
-  },
-  webNoticeCard: {
-    padding: 22,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: '#C7D2FE',
-    backgroundColor: 'rgba(255,255,255,0.9)',
-  },
-  webNoticeEyebrow: {
-    color: '#4F46E5',
-    fontFamily: 'SpaceMono',
-    fontSize: 11,
-    letterSpacing: 1.6,
-  },
-  webNoticeTitle: {
-    marginTop: 10,
-    fontSize: 28,
-    lineHeight: 32,
+  documentTitle: {
+    fontSize: 32,
+    lineHeight: 36,
     fontWeight: '900',
     color: '#111827',
   },
-  webNoticeBody: {
+  documentMeta: {
     marginTop: 10,
-    fontSize: 16,
-    lineHeight: 26,
-    color: '#475569',
-  },
-  webNoticeStrongLine: {
-    marginTop: 10,
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '900',
-    color: '#1E1B4B',
-  },
-  articleStack: {
-    gap: 18,
-  },
-  articleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-    paddingTop: 18,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(148,163,184,0.18)',
-  },
-  articleIndex: {
-    width: 32,
-    color: '#94A3B8',
-    fontFamily: 'SpaceMono',
     fontSize: 12,
-    marginTop: 4,
+    lineHeight: 18,
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
-  articleCopy: {
-    flex: 1,
+  documentCard: {
+    width: '100%',
+    maxWidth: 860,
+    alignSelf: 'center',
+    padding: 30,
+    borderRadius: 28,
+    borderWidth: 1,
+    borderColor: 'rgba(203,213,225,0.8)',
+    backgroundColor: 'rgba(255,255,255,0.96)',
   },
-  articleTitle: {
+  documentParagraph: {
+    fontSize: 13,
+    lineHeight: 24,
+    color: '#374151',
+    marginBottom: 18,
+    textAlign: 'justify',
+  },
+  mobileHeaderCard: {
+    padding: 20,
+    marginBottom: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  mobileHeaderTitle: {
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '900',
     color: '#0F172A',
   },
-  articleBody: {
+  mobileHeaderMeta: {
     marginTop: 8,
-    fontSize: 15,
-    lineHeight: 25,
-    color: '#475569',
+    fontSize: 11,
+    lineHeight: 16,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: '#64748B',
   },
-  heading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-    marginBottom: 8,
+  mobileDocumentCard: {
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
-  content: {
-    fontSize: 14,
+  mobileDocumentParagraph: {
+    fontSize: 13,
     lineHeight: 22,
     color: '#334155',
+    marginBottom: 16,
+    textAlign: 'justify',
+  },
+  mobileDocumentParagraphLast: {
+    marginBottom: 0,
   },
 });

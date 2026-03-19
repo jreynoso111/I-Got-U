@@ -154,7 +154,7 @@ export default function HelpSupportScreen() {
 
         <SupportMessageCard
           title="Contact support"
-          description="Use this form to report account issues, record mismatches, confirmation problems, or general product questions. The message is stored in-app for administrator follow-up."
+          description="Use this form to report account issues, record mismatches, confirmation problems, or general product questions. The message is stored in-app for support follow-up."
         />
 
         <AppLegalFooter style={styles.footer} />
